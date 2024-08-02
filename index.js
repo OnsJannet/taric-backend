@@ -1,22 +1,20 @@
 const express = require('express');
 const axios = require('axios');
 const cors = require('cors');
-const translate = require('translate'); // Add a translation library
+const translate = require('@vitalets/google-translate-api'); // Add the translation library
 
 const app = express();
 const port = 5000;
-
-// Set up the translation library
-translate.engine = 'libre';
-translate.key = 'YOUR_LIBRETRANSLATE_API_KEY'; // Get an API key from LibreTranslate
 
 // Middleware
 app.use(cors()); // Enable CORS
 app.use(express.json());
 
+// Function to translate suggestions to Italian
 const translateToItalian = async (suggestions) => {
   for (let suggestion of suggestions) {
-    suggestion.value = await translate(suggestion.value, 'it');
+    const translation = await translate(suggestion.value, { from: 'en', to: 'it' });
+    suggestion.value = translation.text;
   }
   return suggestions;
 };
@@ -29,8 +27,22 @@ app.get('/api/suggestions', async (req, res) => {
     return res.status(400).send('Term and language are required');
   }
 
-  const targetLang = lang === 'it' ? 'en' : lang; 
-  const url = `https://www.tarifdouanier.eu/api/v2/cnSuggest?term=${encodeURIComponent(term)}&lang=${encodeURIComponent(targetLang)}`;
+  let searchTerm = term;
+  let targetLang = lang;
+
+  if (lang === 'it') {
+    // Translate search term from Italian to English
+    try {
+      const translation = await translate(term, { from: 'it', to: 'en' });
+      searchTerm = translation.text;
+      targetLang = 'en'; // Search in English
+    } catch (error) {
+      console.error('Error translating search term:', error);
+      return res.status(500).send('Error translating search term');
+    }
+  }
+
+  const url = `https://www.tarifdouanier.eu/api/v2/cnSuggest?term=${encodeURIComponent(searchTerm)}&lang=${encodeURIComponent(targetLang)}`;
 
   try {
     const response = await axios.get(url);
