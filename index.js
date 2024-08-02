@@ -1,5 +1,3 @@
-// backend/app.js
-
 const express = require('express');
 const axios = require('axios');
 const cors = require('cors');
@@ -22,7 +20,15 @@ app.get('/api/suggestions', async (req, res) => {
 
   try {
     const response = await axios.get(url);
-    res.json(response.data);
+    const suggestions = response.data.suggestions || [];
+
+    const categorizedSuggestions = {
+      category: suggestions.filter(s => s.code.length === 4),
+      family: suggestions.filter(s => s.code.length === 6),
+      suggestions: suggestions.filter(s => s.code.length !== 4 && s.code.length !== 6),
+    };
+
+    res.json(categorizedSuggestions);
   } catch (error) {
     console.error('Error fetching data:', error);
     res.status(500).send('Internal Server Error');
