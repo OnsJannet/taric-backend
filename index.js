@@ -1,7 +1,6 @@
 const express = require('express');
 const axios = require('axios');
 const cors = require('cors');
-const fs = require('fs');
 const app = express();
 const port = 5000;
 
@@ -11,15 +10,19 @@ app.use(express.json());
 
 let goodsData = [];
 
-// Load the JSON data
-fs.readFile('taric.json', 'utf8', (err, data) => {
-  if (err) {
-    console.error('Error reading taric.json:', err);
-  } else {
-    const parsedData = JSON.parse(data);
+// Fetch the JSON data from the URL
+const loadGoodsData = async () => {
+  try {
+    const response = await axios.get('https://raw.githubusercontent.com/OnsJannet/taric-backend/e529cf1b638f3b03a4b32d4716ea7d09d7802a81/taric.json');
+    const parsedData = response.data;
     goodsData = parsedData.Sheet1 || []; // Adjust to match your JSON structure
+  } catch (error) {
+    console.error('Error fetching taric.json:', error);
   }
-});
+};
+
+// Initialize goodsData
+loadGoodsData();
 
 // Function to translate text
 const translateText = async (text, targetLang) => {
