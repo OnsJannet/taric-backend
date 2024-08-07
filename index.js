@@ -1,98 +1,47 @@
 const express = require('express');
-const axios = require('axios');
 const cors = require('cors');
+const cookieParser = require('cookie-parser');
+const csrf = require('csurf');
+const passport = require('passport');
+const connectDB = require('./config/db');
+const authRoutes = require('./routes/authRoutes');
+const goodsRoutes = require('./routes/goodsRoutes');
+require('dotenv').config();
+
+
+require('./config/passport')(passport);
+
 const app = express();
-const port = 5000;
+const port = process.env.PORT || 5000;
+
+// Connect to MongoDB
+connectDB();
 
 // Middleware
-app.use(cors()); // Enable CORS
+app.use(cors());
 app.use(express.json());
+app.use(cookieParser()); // Make sure to use cookieParser before csrf
+app.use(passport.initialize());
 
-let goodsData = [];
+// CSRF protection
+const csrfProtection = csrf({ cookie: true });
+app.use(csrfProtection);
 
-// Fetch the JSON data from the URL
-const loadGoodsData = async () => {
-  try {
-    const response = await axios.get('https://raw.githubusercontent.com/OnsJannet/taric-backend/e529cf1b638f3b03a4b32d4716ea7d09d7802a81/taric.json');
-    const parsedData = response.data;
-    goodsData = parsedData.Sheet1 || []; // Adjust to match your JSON structure
-  } catch (error) {
-    console.error('Error fetching taric.json:', error);
+// Route to get CSRF token
+app.get('/api/csrf-token', (req, res) => {
+  res.json({ csrfToken: req.csrfToken() });
+});
+
+// Routes
+app.use('/api/auth', authRoutes);
+app.use('/api/goods', goodsRoutes);
+
+// Global error handler for CSRF errors
+app.use((err, req, res, next) => {
+  if (err.code === 'EBADCSRFTOKEN') {
+    return res.status(403).json({ message: 'Invalid CSRF token' });
   }
-};
-
-// Initialize goodsData
-loadGoodsData();
-
-// Function to translate text
-const translateText = async (text, targetLang) => {
-  try {
-    const response = await axios.post('https://libretranslate.de/translate', {
-      q: text,
-      source: 'en',
-      target: targetLang,
-      format: 'text'
-    });
-    return response.data.translatedText;
-  } catch (error) {
-    console.error('Translation error:', error);
-    return text; // Return the original text in case of error
-  }
-};
-
-// Function to compare codes
-const compareCodes = (code, goodsData) => {
-  const prefix = code; // Adjust prefix length as needed
-  const matches = goodsData.filter(item => item['Goodscode'] && item['Goodscode'].toString().startsWith(prefix));
-  return matches;
-};
-
-// API route to fetch suggestions
-app.get('/api/suggestions', async (req, res) => {
-  const { term, lang } = req.query;
-
-  if (!term || !lang) {
-    return res.status(400).send('Term and language are required');
-  }
-
-  let searchTerm = term;
-  let targetLang = lang;
-
-  if (lang === 'it') {
-    searchTerm = await translateText(term, 'en'); // Translate Italian term to English
-    targetLang = 'en';
-  }
-
-  const url = `https://www.tarifdouanier.eu/api/v2/cnSuggest?term=${encodeURIComponent(searchTerm)}&lang=${encodeURIComponent(targetLang)}`;
-  console.log("url", url);
-  try {
-    const response = await axios.get(url);
-    const suggestions = response.data.suggestions || [];
-
-    const categorizedSuggestions = {
-      category: suggestions.filter(s => s.code.length === 4),
-      family: suggestions.filter(s => s.code.length === 6),
-      suggestions: suggestions.filter(s => s.code.length !== 4 && s.code.length !== 6),
-    };
-
-    // Compare only suggestions with codes other than lengths 4 and 6
-    const matchedSuggestions = categorizedSuggestions.suggestions.map(s => ({
-      ...s,
-      matches: compareCodes(s.code, goodsData)
-    }));
-
-    if (lang === 'it') {
-      // Translate results back to Italian
-      for (const suggestion of categorizedSuggestions.suggestions) {
-        suggestion.value = await translateText(suggestion.value, 'it');
-      }
-    }
-
-    res.json({ categorizedSuggestions, matchedSuggestions });
-  } catch (error) {
-    console.error('Error fetching data:', error);
-    res.status(500).send('Internal Server Error');
-  }
+  next(err);
 });
 
 app.listen(port, () => {
