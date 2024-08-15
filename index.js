@@ -6,6 +6,7 @@ const passport = require('passport');
 const connectDB = require('./config/db');
 const authRoutes = require('./routes/authRoutes');
 const goodsRoutes = require('./routes/goodsRoutes');
+const elasticRoutes = require('./routes/elasticRoutes');
 require('dotenv').config();
 
 
@@ -20,7 +21,7 @@ connectDB();
 // Middleware
 app.use(cors());
 app.use(express.json());
-app.use(cookieParser()); // Make sure to use cookieParser before csrf
+app.use(cookieParser());
 app.use(passport.initialize());
 
 // CSRF protection
@@ -35,6 +36,7 @@ app.get('/api/csrf-token', (req, res) => {
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/goods', goodsRoutes);
+app.use('/api/elastic', elasticRoutes);
 
 // Global error handler for CSRF errors
 app.use((err, req, res, next) => {

@@ -1,0 +1,22 @@
+[
+    {
+        "code": "$trimedCode$",
+        "ident": "$indent$",
+        "description_td": "$description$<span id=\"footnote_parenthesis\" class=\"footnote_parenthesis\" style=\"vertical-align: top;display: inline;\">&nbsp;$footnotes$</span>"
+    },
+    {
+        "code": "$trimedCode$",
+        "ident": "$indent$",
+        "description_td": "$description$<span id=\"footnote_parenthesis\" class=\"footnote_parenthesis\" style=\"display: inline;\">&nbsp;$footnotes$</span>"
+    },
+    {
+        "code": "$trimedCode$",
+        "ident": "$indent$",
+        "description_td": "$description$<span id=\"footnote_parenthesis\" class=\"footnote_parenthesis\" style=\"display: inline;\">&nbsp;$footnotes$</span>"
+    },
+    {
+        "code": "$ernCode$",
+        "ident": "$ernIndent$",
+        "description_td": "$ernDesc$<span id=\"footnote_parenthesis\" class=\"footnote_parenthesis\" style=\"vertical-align: top;display: inline;\">&nbsp;$footnotes$</span>"
+    }
+]
