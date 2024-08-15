@@ -21,7 +21,7 @@ jobs:
       run: npm install
 
     - name: Run scraping script
-      run: node scrape.js
+      run: node scraper.js
 
     - name: Update log file with date and time
       run: echo "Scraping ran at $(date)" >> scrape-log.txt
