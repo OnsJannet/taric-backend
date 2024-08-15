@@ -26,7 +26,4 @@ jobs:
     - name: Update log file with date and time
       run: echo "Scraping ran at $(date)" >> scrape-log.txt
 
-    # Optional: Upload the results to a storage service
-    - name: Deploy scraped data
-      run: |
-        # Your deployment commands here
+
