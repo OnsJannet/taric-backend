@@ -11,7 +11,7 @@ const loadGoodsData = async () => {
   try {
     const response = await axios.get('https://raw.githubusercontent.com/OnsJannet/taric-backend/e529cf1b638f3b03a4b32d4716ea7d09d7802a81/taric.json');
     const parsedData = response.data;
-    goodsData = parsedData.Sheet1 || []; // Adjust to match your JSON structure
+    goodsData = parsedData.Sheet1 || [];
   } catch (error) {
     console.error('Error fetching taric.json:', error);
   }
