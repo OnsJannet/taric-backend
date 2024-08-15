@@ -1,0 +1,32 @@
+name: Daily Scraping
+
+on:
+  schedule:
+    - cron: '0 0 * * *' # Runs at 00:00 UTC every day
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v2
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v2
+      with:
+        node-version: '16'
+
+    - name: Install dependencies
+      run: npm install
+
+    - name: Run scraping script
+      run: node scrape.js
+
+    - name: Update log file with date and time
+      run: echo "Scraping ran at $(date)" >> scrape-log.txt
+
+    # Optional: Upload the results to a storage service
+    - name: Deploy scraped data
+      run: |
+        # Your deployment commands here
