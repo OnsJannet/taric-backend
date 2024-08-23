@@ -2,9 +2,12 @@ const express = require('express');
 const router = express.Router();
 const axios = require('axios');
 const { check, validationResult } = require('express-validator');
+const fs = require('fs').promises;
+require('dotenv').config();
 
 // Mock goods data variable
 let goodsData = [];
+let italianGoodsData = [];
 
 // Fetch the JSON data from the URL
 const loadGoodsData = async () => {
@@ -17,30 +20,75 @@ const loadGoodsData = async () => {
   }
 };
 
-// Initialize goodsData
-loadGoodsData();
-
-// Function to translate text
-const translateText = async (text, targetLang) => {
+// Load Italian goods data from local JSON file
+const loadItalianGoodsData = async () => {
   try {
-    const response = await axios.post('https://libretranslate.de/translate', {
-      q: text,
-      source: 'en',
-      target: targetLang,
-      format: 'text'
-    });
-    return response.data.translatedText;
+    const data = await fs.readFile('scraped_data_it.json', 'utf-8');
+    italianGoodsData = JSON.parse(data);
   } catch (error) {
-    console.error('Translation error:', error);
-    return text; // Return the original text in case of error
+    console.error('Error loading scraped_data_it.json:', error);
   }
 };
 
-// Function to compare codes
-const compareCodes = (code, goodsData) => {
-  const prefix = code; // Adjust prefix length as needed
-  const matches = goodsData.filter(item => item['Goodscode'] && item['Goodscode'].toString().startsWith(prefix));
-  return matches;
+// Initialize goodsData and italianGoodsData
+loadGoodsData();
+loadItalianGoodsData();
+
+// Function to translate text using Google Translate API
+const translateText = async (text, targetLang) => {
+  try {
+    const apiKey = process.env.GOOGLE_TRANSLATE_API_KEY;
+    const url = `https://translation.googleapis.com/language/translate/v2?key=${apiKey}`;
+
+    const response = await axios.post(
+      url,
+      {
+        q: text,
+        target: targetLang,
+        source: 'it'
+      },
+      {
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+
+    return response.data.data.translations[0].translatedText;
+  } catch (error) {
+    console.error('Translation error:', error.response ? error.response.data : error.message);
+    return text;
+  }
+};
+
+// Function to compare codes and find matching descriptions in Italian goods data
+const compareCodesWithItalianGoodsData = (code) => {
+  // Remove spaces from the code to match the format
+  const formattedCode = code.replace(/\s+/g, '');
+
+  // Find matching entry in the Italian goods data
+  const match = italianGoodsData.find(item => item.code.replace(/\s+/g, '') === formattedCode);
+  if (match) {
+    return match.description.split(':')[0].trim(); // Remove everything after the colon
+  }
+  return null; // Return null if no match is found
+};
+
+// Helper function to replace descriptions in suggestions based on the language
+const replaceDescriptions = (suggestions, lang) => {
+  return suggestions.reduce((acc, s) => {
+    const italianDescription = lang === 'it' ? compareCodesWithItalianGoodsData(s.code) : s.value;
+    
+    // Only include the suggestion if the description is found
+    if (italianDescription) {
+      acc.push({
+        ...s,
+        value: italianDescription
+      });
+    }
+
+    return acc;
+  }, []);
 };
 
 // API route to fetch suggestions
@@ -69,26 +117,24 @@ router.get('/suggestions', [
     const response = await axios.get(url);
     const suggestions = response.data.suggestions || [];
 
+    // Categorize suggestions by code length
     const categorizedSuggestions = {
       category: suggestions.filter(s => s.code.length === 4),
       family: suggestions.filter(s => s.code.length === 6),
       suggestions: suggestions.filter(s => s.code.length !== 4 && s.code.length !== 6),
     };
 
-    // Compare only suggestions with codes other than lengths 4 and 6
-    const matchedSuggestions = categorizedSuggestions.suggestions.map(s => ({
-      ...s,
-      matches: compareCodes(s.code, goodsData)
-    }));
+    // Update all categorized suggestions with descriptions from Italian goods data
+    const updatedCategorizedSuggestions = {
+      category: replaceDescriptions(categorizedSuggestions.category, lang),
+      family: replaceDescriptions(categorizedSuggestions.family, lang),
+      suggestions: replaceDescriptions(categorizedSuggestions.suggestions, lang)
+    };
 
-    if (lang === 'it') {
-      // Translate results back to Italian
-      for (const suggestion of categorizedSuggestions.suggestions) {
-        suggestion.value = await translateText(suggestion.value, 'it');
-      }
-    }
+    // Update matchedSuggestions as well
+    const matchedSuggestions = replaceDescriptions(categorizedSuggestions.suggestions, lang);
 
-    res.json({ categorizedSuggestions, matchedSuggestions });
+    res.json({ categorizedSuggestions: updatedCategorizedSuggestions, matchedSuggestions });
   } catch (error) {
     console.error('Error fetching data:', error);
     res.status(500).send('Internal Server Error');

@@ -3,7 +3,6 @@ const { check, validationResult } = require('express-validator');
 
 const router = express.Router();
 
-// Sample data for demonstration; replace this with your actual data loading
 const scrapedDataEn = require('../scraped_data_en.json');
 const scrapedDataIt = require('../scraped_data_it.json');
 
@@ -12,7 +11,6 @@ const stripHtmlTags = (text) => text.replace(/<\/?[^>]+>/gi, '').trim();
 
 // Function to extract text before a specific HTML tag
 const extractTextBeforeTag = (text) => {
-  // Adjusted regular expression to capture text before the <a> tag
   const regex = /(.*?)(?:\s*<a\s+class="ecl-link.*?>.*<\/a>)$/i;
   const match = text.match(regex);
   return match ? match[1].trim() : text;
@@ -21,20 +19,41 @@ const extractTextBeforeTag = (text) => {
 // Function to perform search
 const search = (data, term) => {
   console.log('Searching for term:', term);
-  console.log('Data length:', data.length); 
+  console.log('Data length:', data.length);
 
   // Clean and normalize term
   const cleanedTerm = term.toLowerCase().trim();
   console.log('Cleaned term:', cleanedTerm);
 
-  const results = data.filter(item => {
-    let cleanedDescription = stripHtmlTags(item.description).toLowerCase().trim();
-    // Extract text before the specific HTML tag
-    cleanedDescription = extractTextBeforeTag(cleanedDescription);
-    console.log('Cleaned Description:', cleanedDescription);
-    // Check if term is included in description
-    return cleanedDescription.includes(cleanedTerm);
+  // Split the cleaned term into individual words
+  const termsArray = cleanedTerm.split(/\s+/);
+  console.log('Split terms:', termsArray);
+
+  const resultsMap = {};
+
+  // Search for each term separately
+  termsArray.forEach(word => {
+    console.log('Searching for word:', word);
+
+    data.forEach(item => {
+      let cleanedDescription = stripHtmlTags(item.description).toLowerCase().trim();
+      cleanedDescription = extractTextBeforeTag(cleanedDescription);
+
+      console.log('Description:', cleanedDescription);
+
+      if (cleanedDescription.includes(word)) {
+        if (!resultsMap[item.code]) {
+          resultsMap[item.code] = { item, matchCount: 0 };
+        }
+        resultsMap[item.code].matchCount += 1;
+      }
+    });
   });
+
+  // Convert the map to an array and sort by match count
+  const results = Object.values(resultsMap)
+    .sort((a, b) => b.matchCount - a.matchCount)
+    .map(result => result.item);
 
   console.log('Results:', results);
   return results;
@@ -53,7 +72,6 @@ router.get('/suggestions', [
   const { term, lang } = req.query;
   const data = lang === 'it' ? scrapedDataIt : scrapedDataEn;
 
-  // Console log the term and the data being searched
   console.log('Requested term:', term);
   console.log('Data source:', lang === 'it' ? 'scrapedDataIt' : 'scrapedDataEn');
 
