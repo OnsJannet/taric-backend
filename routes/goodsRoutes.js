@@ -91,6 +91,22 @@ const replaceDescriptions = (suggestions, lang) => {
   }, []);
 };
 
+// Function to compare codes from goods data
+const compareCodes = (code, goodsData) => {
+  const prefix = code; // Adjust prefix length as needed
+  const matches = goodsData.filter(item => item['Goodscode'] && item['Goodscode'].toString().startsWith(prefix));
+
+  // Update matches with Italian descriptions if they exist
+  matches.forEach(match => {
+    const italianMatch = italianGoodsData.find(italianItem => italianItem.code.replace(/\s+/g, '') === match['Goodscode'].replace(/\s+/g, ''));
+    if (italianMatch) {
+      match.DescriptionIT = italianMatch.description; // Assuming 'description' field contains the Italian description
+    }
+  });
+
+  return matches;
+};
+
 // API route to fetch suggestions
 router.get('/suggestions', [
   check('term').notEmpty().withMessage('Term is required'),
@@ -131,8 +147,14 @@ router.get('/suggestions', [
       suggestions: replaceDescriptions(categorizedSuggestions.suggestions, lang)
     };
 
-    // Update matchedSuggestions as well
-    const matchedSuggestions = replaceDescriptions(categorizedSuggestions.suggestions, lang);
+    // Update matched suggestions with Italian descriptions
+    const matchedSuggestions = categorizedSuggestions.suggestions.map(s => ({
+      ...s,
+      matches: compareCodes(s.code, goodsData).map(match => ({
+        ...match,
+        Description: lang === 'it' && match.DescriptionIT ? match.DescriptionIT : match.Description
+      }))
+    }));
 
     res.json({ categorizedSuggestions: updatedCategorizedSuggestions, matchedSuggestions });
   } catch (error) {
