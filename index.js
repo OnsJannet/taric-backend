@@ -1,7 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
-const csrf = require('csurf');
+//const csrf = require('csurf');
 const passport = require('passport');
 const connectDB = require('./config/db');
 const authRoutes = require('./routes/authRoutes');
@@ -24,28 +24,27 @@ app.use(express.json());
 app.use(cookieParser());
 app.use(passport.initialize());
 
-// CSRF protection
-const csrfProtection = csrf({ cookie: true });
-app.use(csrfProtection);
+// CSRF protection (Commented out for now)
+// const csrfProtection = csrf({ cookie: true });
+// app.use(csrfProtection);
 
-// Route to get CSRF token
-app.get('/api/csrf-token', (req, res) => {
-  res.json({ csrfToken: req.csrfToken() });
-});
+// Route to get CSRF token (Commented out for now)
+// app.get('/api/csrf-token', (req, res) => {
+//   res.json({ csrfToken: req.csrfToken() });
+// });
 
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/goods', goodsRoutes);
 app.use('/api/elastic', elasticRoutes);
 
-// Global error handler for CSRF errors
-app.use((err, req, res, next) => {
-  if (err.code === 'EBADCSRFTOKEN') {
-    return res.status(403).json({ message: 'Invalid CSRF token' });
-  }
-  next(err);
-});
-
+// Global error handler for CSRF errors (Commented out for now)
+// app.use((err, req, res, next) => {
+//   if (err.code === 'EBADCSRFTOKEN') {
+//     return res.status(403).json({ message: 'Invalid CSRF token' });
+//   }
+//   next(err);
+// });
 app.listen(port, () => {
   console.log(`Server is running on http://localhost:${port}`);
 });
