@@ -7,15 +7,7 @@ const userSchema = new mongoose.Schema({
   password: { type: String, required: true },
   defaultLanguage: { type: String, default: 'en' },
   pack: { type: mongoose.Schema.Types.ObjectId, ref: 'Product', required: true }, // Reference to the selected pack from Product model
-  carts: [{ // List of carts
-    items: [
-      {
-        productId: { type: mongoose.Schema.Types.ObjectId, ref: 'Product' }, // Assuming you have a Product model
-        quantity: { type: Number, default: 1 },
-      }
-    ],
-    createdAt: { type: Date, default: Date.now },
-  }]
+  carts: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Cart' }]
 });
 
 // Pre-save hook to hash password before saving the user

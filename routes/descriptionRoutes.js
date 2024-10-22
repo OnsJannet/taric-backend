@@ -1,9 +1,29 @@
 const express = require('express');
 const { GoogleGenerativeAI } = require('@google/generative-ai'); // Import the correct class
 require('dotenv').config(); // Load environment variables
+const axios = require('axios');
 
-// Initialize router
 const router = express.Router();
+let goodsData = [];
+
+// Load TARIC data from the given URL
+const loadGoodsData = async () => {
+  try {
+    const response = await axios.get('https://raw.githubusercontent.com/OnsJannet/taric-backend/e529cf1b638f3b03a4b32d4716ea7d09d7802a81/taric.json');
+    const parsedData = response.data;
+    goodsData = parsedData.Sheet1 || [];
+  } catch (error) {
+    console.error('Error fetching taric.json:', error);
+  }
+};
+
+// Middleware to load TARIC data
+const loadDataMiddleware = async (req, res, next) => {
+  await loadGoodsData();
+  next();
+};
+
+
 
 // Initialize Google Generative AI instance
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY); // Use your Google API key directly here
@@ -97,28 +117,26 @@ router.post('/get-taric-codes', async (req, res) => {
 
     // Updated prompt to include the necessary instruction for code and description display
     const prompt = `
-    Basato sulla seguente descrizione ${language === 'it' ? 'in italiano' : 'in inglese'}, fornisci le seguenti informazioni in modo dettagliato:
-
-    1. fornisci una frase che descrive l'oggetto utilizzando il termine corretto e includendo tutti i materiali specifici in un elenco. Ad esempio, se l'oggetto è un appendiabiti di plastica o di metallo, rispondi "Appendiabiti di legno, materiale plastico, metallo".\n\nDescrizione: "${textToProcess}".\n\nFormatta la risposta come segue:\n\n"[la frase completa con il termine corretto e i materiali in un elenco separato da virgole]". Assicurati di includere tutti i materiali menzionati nella descrizione e di fornire la risposta nel formato richiesto.\n
-    2. Un elenco di codici di famiglia TARIC (6 cifre) associati ai materiali descritti.
-    3. Un elenco di suggerimenti abbinati (12 cifre) corrispondenti a quei codici.
-    4. Una breve descrizione per ciascun codice TARIC fornito.
-    5. Mostra il codice e la descrizione per ciascun suggerimento abbinato.
-
+    Basato sulla seguente descrizione ${language === 'it' ? 'in italiano' : 'in inglese'}, fornisci le seguenti informazioni:
+  
+    1. Una frase che descrive l'oggetto e i materiali utilizzati.
+    2. Elenca i codici di famiglia TARIC (6 cifre) associati ai materiali.
+    3. Elenca i suggerimenti abbinati (12 cifre) corrispondenti a questi codici.
+    4. Aggiungi altri codici TARIC simili ai precedenti e vicini nella classificazione.
+    
     Descrizione: "${textToProcess}". 
-
+  
     Formatta la risposta come segue:
-
+  
     word: [la frase]
-    Family: [elenco di codici di famiglia a 6 cifre, separati da una nuova linea per ogni codice]
-    Descriptions: [descrizioni per ciascun codice, separati da una nuova linea per ogni descrizione]
-    Matched Suggestion: [elenco di suggerimenti abbinati a 12 cifre, separati da una nuova linea per ogni suggerimento]
-    Descriptions: [descrizioni per ciascun suggerimento, separati da una nuova linea per ogni descrizione]
-    Possible Other Codes: [altri codici TARIC, separati da una nuova linea per ogni codice]
-    Descriptions: [descrizioni per ciascun codice, separati da una nuova linea per ogni descrizione]. 
-        
-    Assicurati che ciascun codice e la sua descrizione siano su righe separate.
-    `;
+    Family: [codici di famiglia a 6 cifre]
+    Descriptions: [descrizioni per ciascun codice TARIC]
+    Matched Suggestion: [suggerimenti abbinati a 12 cifre]
+    Descriptions: [descrizioni per ciascun suggerimento]
+    Possible Other Codes: [altri codici TARIC più vicini]
+    Descriptions: [descrizioni per gli altri codici TARIC].
+  `;
+  
 
     // Fetch response from the model
     const result = await model.generateContent([prompt]);
@@ -184,6 +202,223 @@ router.post('/get-taric-codes', async (req, res) => {
     res.status(500).json({ error: 'Something went wrong!' });
   }
 });
+
+
+// Endpoint to get suggested terms
+router.post('/get-suggested-terms', async (req, res) => {
+  try {
+    const { description, language } = req.body;
+
+    // Validate input
+    if (!description) {
+      return res.status(400).json({ error: "Description is required" });
+    }
+    if (!['it', 'en'].includes(language)) {
+      return res.status(400).json({ error: "Unsupported language" });
+    }
+
+    console.log("language: " + language);
+
+    let textToProcess = description;
+
+    // Initialize the model
+    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+
+    // Generate suggestions for terms with materials, uses, and category
+    const suggestionPrompt = `
+    Given the following description, please generate suggested terms in ${language === 'it' ? 'Italian' : 'English'} without any additional text:
+    
+    Description: "${textToProcess}".
+
+    Provide the terms in the following format:
+    - Term: 
+      - Category: ...
+      - Materials: ...
+      - Uses: ...
+    Categorize the term based on its likely use (e.g., "Household item", "Industrial equipment", "Electronics", etc.).
+    `;
+
+    // Fetch suggestions from the model
+    const suggestionResult = await model.generateContent([suggestionPrompt]);
+    let suggestionResponseText = suggestionResult.response.text().trim();
+
+    // Log the raw response from the model for debugging
+    console.log("Raw suggestion response:", suggestionResponseText);
+
+    // Clean up formatting
+    suggestionResponseText = suggestionResponseText
+      .replace(/\*\*/g, '') // Remove bold formatting
+      .trim(); // Trim leading/trailing whitespace
+
+    // Split the response into individual terms based on new lines and dashes
+    const suggestedTerms = suggestionResponseText.split(/\n(?=-)/).map(term => {
+      // Clean up each term
+      const cleanedTerm = term.trim();
+
+      // Extract the term name using a regex to capture up to the first colon
+      const termMatch = cleanedTerm.match(/^(.+?):/);
+      if (!termMatch) {
+        console.warn(`Unexpected format for term: ${cleanedTerm}`);
+        return null; // Skip if not in expected format
+      }
+
+      const termName = termMatch[1].trim();
+
+      // Split category, materials, and uses
+      const categoryMatch = cleanedTerm.match(/Category:\s*(.+?)(?:\n|$)/);
+      const materialsMatch = cleanedTerm.match(/Materials:\s*(.+?)(?:\n|$)/);
+      const usesMatch = cleanedTerm.match(/Uses:\s*(.+?)(?:\n|$)/);
+
+      const category = categoryMatch ? categoryMatch[1].trim() : 'Uncategorized';
+      const materials = materialsMatch ? materialsMatch[1].trim() : '';
+      const uses = usesMatch ? usesMatch[1].trim() : '';
+
+      return {
+        term: termName,
+        category: category,
+        materials: materials,
+        uses: uses,
+      };
+    }).filter(term => term !== null); // Filter out any null entries
+
+    // Log the final suggested terms for debugging
+    console.log("Suggested terms:", suggestedTerms);
+
+    // Send the suggested terms back as JSON
+    res.json({ suggestedTerms });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Something went wrong!' });
+  }
+});
+
+
+
+
+
+
+
+
+// Endpoint to get TARIC codes for the selected suggestion
+router.post('/get-taric-codes-new', async (req, res) => {
+  try {
+    const { word, materials, uses, language } = req.body;
+
+    // Validate input
+    if (!word || !materials || !uses) {
+      return res.status(400).json({ error: "Word, materials, and uses are required" });
+    }
+    if (!['it', 'en'].includes(language)) {
+      return res.status(400).json({ error: "Unsupported language" });
+    }
+
+    // Initialize the model
+    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+
+    // Generate TARIC codes based on the selected term, materials, and uses
+    const taricPrompt = `
+    Based on the following details, provide the corresponding TARIC codes and descriptions for each material and use.
+
+    Word: "${word}"
+    Materials: "${materials}"
+    Uses: "${uses}"
+
+    Language: ${language === 'it' ? 'Italian' : 'English'}.
+
+    For each material and use, provide the TARIC code and description in the following format:
+    Material: [material name]
+    TARIC Code: [taric code]
+    Description: [description]
+    
+    Please ensure to provide codes for all materials and uses.
+    `;
+
+    // Fetch response for TARIC codes from the model
+    const taricResult = await model.generateContent([taricPrompt]);
+    let taricResponseText = taricResult.response.text().trim();
+
+    // Clean up formatting
+    taricResponseText = taricResponseText.replace(/\*\*|\*\*/g, '');
+    taricResponseText = taricResponseText.replace(/(\*\s*)|(\*\*\s*)/g, '');
+    taricResponseText = taricResponseText.replace(/\n\n+/g, '\n');
+
+    const sections = taricResponseText.split(/Material:|TARIC Code:|Description:/);
+    const family = [];
+
+    // Iterate through the sections to map materials to their respective codes and descriptions
+    for (let i = 1; i < sections.length; i += 3) {
+      const material = sections[i]?.trim();
+      const code = sections[i + 1]?.trim();
+      const description = sections[i + 2]?.trim();
+
+      if (material && code) {
+        family.push({
+          material,
+          code,
+          description: description || 'No description available'
+        });
+      }
+    }
+
+    // Send the TARIC codes and descriptions back as JSON
+    res.json({ family });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Something went wrong!' });
+  }
+});
+
+
+router.post('/get-taric-codes-new-json', async (req, res) => {
+  try {
+    const { word, materials, uses, language } = req.body;
+
+    // Validate input
+    if (!word || !materials || !uses) {
+      return res.status(400).json({ error: "Word, materials, and uses are required" });
+    }
+    if (!['it', 'en'].includes(language)) {
+      return res.status(400).json({ error: "Unsupported language" });
+    }
+
+    const family = [];
+
+    // Function to find matching TARIC codes based on materials and uses
+    const findTaricCodes = (material) => {
+      return goodsData.filter(item => 
+        item.Description.toLowerCase().includes(material.toLowerCase()) ||
+        item.DescriptionEN.toLowerCase().includes(material.toLowerCase())
+      );
+    };
+
+    // Prepare an array of materials
+    const materialsArray = materials.split(',').map(material => material.trim());
+
+    // Iterate through materials to find TARIC codes
+    materialsArray.forEach(material => {
+      const codes = findTaricCodes(material);
+      codes.forEach(code => {
+        const codeToAdd = {
+          code: code.Goodscode,
+          description: language === 'it' ? code.Description : code.DescriptionEN
+        };
+        family.push(codeToAdd);
+      });
+    });
+
+    // Send the TARIC codes and descriptions back as JSON
+    res.json({ family });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Something went wrong!' });
+  }
+});
+
+module.exports = router;
+
+
+
+
 
 
 module.exports = router;

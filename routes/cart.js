@@ -20,26 +20,40 @@ const createCart = async (userId) => {
 
 // Function to add an item to the cart, with cart creation if it doesn't exist
 const addItemToCart = async (userId, { code, score, value, data, quantity }) => {
-  // Check if the cart exists for the user and its status
-  let cart = await Cart.findOne({ userId, status: 'open' });
+  try {
+    // Find the user's cart
+    let cart = await Cart.findOne({ userId, status: 'open' });
 
-  // Automatically create a new cart if one doesn't exist or is closed/paid
-  if (!cart || cartStatus[userId] === 'closed' || cartStatus[userId] === 'paid') {
-    cart = await createCart(userId);
+    // Automatically create a new cart if one doesn't exist or is closed/paid
+    if (!cart) {
+      cart = await createCart(userId);
+    }
+
+    // Check if the item (by product code) is already in the cart
+    const existingItem = cart.items.find(item => item.code === code);
+
+    if (existingItem) {
+      // Update the quantity if the item already exists
+      existingItem.quantity += quantity;
+    } else {
+      // Add a new item to the cart
+      cart.items.push({ code, score, value, data, quantity });
+    }
+
+    // Save the updated cart
+    await cart.save();
+
+    // Find the user and update the 'carts' field
+    await User.findByIdAndUpdate(
+      userId,
+      { $addToSet: { carts: cart._id } }, // Add the cart ID to the user's 'carts' array
+      { new: true } // Return the updated document
+    );
+  } catch (error) {
+    throw new Error(`Error adding item to cart: ${error.message}`);
   }
-
-  // Check if the item (by product code) is already in the cart
-  const existingItem = cart.items.find(item => item.code === code); // Use the `items` array
-
-  if (existingItem) {
-    existingItem.quantity += quantity; // Update the quantity if the item already exists
-  } else {
-    // Add a new item to the cart with the relevant product fields
-    cart.items.push({ code, score, value, data, quantity });
-  }
-
-  await cart.save(); // Save the updated cart
 };
+
 
 // Function to remove an item from the cart
 const removeItemFromCart = async (userId, code) => {
