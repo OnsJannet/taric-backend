@@ -293,80 +293,213 @@ router.post('/get-suggested-terms', async (req, res) => {
 });
 
 
-
-
-
-
-
-
-// Endpoint to get TARIC codes for the selected suggestion
-router.post('/get-taric-codes-new', async (req, res) => {
+router.post('/get-suggested-taric-codes', async (req, res) => {
   try {
-    const { word, materials, uses, language } = req.body;
+    const { description, language } = req.body;
 
     // Validate input
-    if (!word || !materials || !uses) {
-      return res.status(400).json({ error: "Word, materials, and uses are required" });
+    if (!description) {
+      return res.status(400).json({ error: "Description is required" });
     }
     if (!['it', 'en'].includes(language)) {
       return res.status(400).json({ error: "Unsupported language" });
     }
 
+    console.log("language: " + language);
+
+    let textToProcess = description;
+
     // Initialize the model
     const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
 
-    // Generate TARIC codes based on the selected term, materials, and uses
-    const taricPrompt = `
-    Based on the following details, provide the corresponding TARIC codes and descriptions for each material and use.
+    // Generate TARIC code suggestions based on the specified language
+    const languagePrompts = {
+      it: `
+      In base alla seguente descrizione, genera i migliori codici TARIC possibili in italiano,
+      con lunghezze variabili (4, 8, 10, 12 e 16). Ogni codice TARIC dovrebbe essere la classificazione 
+      più accurata per questo articolo in Italia.
 
-    Word: "${word}"
-    Materials: "${materials}"
-    Uses: "${uses}"
+      Descrizione: "${textToProcess}".
 
-    Language: ${language === 'it' ? 'Italian' : 'English'}.
+      Fornisci i codici TARIC in questo formato:
+      - Codice TARIC a 4 cifre: XXXX
+      - Codice TARIC a 8 cifre: XXXXXXXX
+      - Codice TARIC a 10 cifre: XXXXXXXXXX
+      - Codice TARIC a 12 cifre: XXXXXXXXXXXX
+      - Codice TARIC a 16 cifre: XXXXXXXXXXXXXXXX
 
-    For each material and use, provide the TARIC code and description in the following format:
-    Material: [material name]
-    TARIC Code: [taric code]
-    Description: [description]
-    
-    Please ensure to provide codes for all materials and uses.
-    `;
+      Assicurati che questi codici siano accurati per la descrizione fornita.
+      `,
+      en: `
+      Based on the following description, please generate the best possible TARIC codes in English,
+      with varying digit lengths (4, 8, 10, 12, and 16). Each TARIC code should be the most accurate 
+      classification for this item in Italy.
 
-    // Fetch response for TARIC codes from the model
+      Description: "${textToProcess}".
+
+      Provide the TARIC codes in this format:
+      - 4-digit TARIC code: XXXX
+      - 8-digit TARIC code: XXXXXXXX
+      - 10-digit TARIC code: XXXXXXXXXX
+      - 12-digit TARIC code: XXXXXXXXXXXX
+      - 16-digit TARIC code: XXXXXXXXXXXXXXXX
+
+      Please ensure these codes are accurate for the given description.
+      `
+    };
+
+    const taricPrompt = languagePrompts[language];
+
+    // Fetch TARIC code suggestions from the model
     const taricResult = await model.generateContent([taricPrompt]);
     let taricResponseText = taricResult.response.text().trim();
 
-    // Clean up formatting
-    taricResponseText = taricResponseText.replace(/\*\*|\*\*/g, '');
-    taricResponseText = taricResponseText.replace(/(\*\s*)|(\*\*\s*)/g, '');
-    taricResponseText = taricResponseText.replace(/\n\n+/g, '\n');
+    // Log the raw response for debugging
+    console.log("Raw TARIC response:", taricResponseText);
 
-    const sections = taricResponseText.split(/Material:|TARIC Code:|Description:/);
-    const family = [];
+    // Extract TARIC codes
+    const taricCodes = {
+      fourDigit: taricResponseText.match(/(?:Codice TARIC a 4 cifre|4-digit TARIC code):\s*(\d{4})/)?.[1] || null,
+      eightDigit: taricResponseText.match(/(?:Codice TARIC a 8 cifre|8-digit TARIC code):\s*(\d{8})/)?.[1] || null,
+      tenDigit: taricResponseText.match(/(?:Codice TARIC a 10 cifre|10-digit TARIC code):\s*(\d{10})/)?.[1] || null,
+      twelveDigit: taricResponseText.match(/(?:Codice TARIC a 12 cifre|12-digit TARIC code):\s*(\d{12})/)?.[1] || null,
+      sixteenDigit: taricResponseText.match(/(?:Codice TARIC a 16 cifre|16-digit TARIC code):\s*(\d{16})/)?.[1] || null
+    };
 
-    // Iterate through the sections to map materials to their respective codes and descriptions
-    for (let i = 1; i < sections.length; i += 3) {
-      const material = sections[i]?.trim();
-      const code = sections[i + 1]?.trim();
-      const description = sections[i + 2]?.trim();
+    // Log the final TARIC codes for debugging
+    console.log("TARIC codes:", taricCodes);
 
-      if (material && code) {
-        family.push({
-          material,
-          code,
-          description: description || 'No description available'
-        });
-      }
-    }
-
-    // Send the TARIC codes and descriptions back as JSON
-    res.json({ family });
+    // Send the TARIC codes back as JSON
+    res.json({ taricCodes });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Something went wrong!' });
   }
 });
+
+
+
+
+// Endpoint to get TARIC codes for the selected suggestion
+router.post('/get-taric-code-questions', async (req, res) => {
+  try {
+    const { term, language } = req.body;
+
+    // Validate input
+    if (!term) {
+      return res.status(400).json({ error: "Term is required" });
+    }
+    if (!['it', 'en'].includes(language)) {
+      return res.status(400).json({ error: "Unsupported language" });
+    }
+
+    console.log("Language: " + language);
+    console.log("Term: " + term);
+
+    // Initialize the model
+    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+
+    // Define the prompt for generating questions
+    const questionPrompt = `
+      Based on the following term, generate a series of questions to determine the appropriate TARIC code. 
+      Ask these questions in ${language === 'it' ? 'Italian' : 'English'}.
+      
+      Ensure to provide each question as a separate line and in a clear format.
+
+      Term: "${term}"
+
+      Ensure to cover all aspects needed for TARIC classification.
+    `;
+
+    // Fetch questions from the model
+    const questionsResult = await model.generateContent([questionPrompt]);
+    const questionsText = questionsResult.response.text().trim();
+
+    // Log the raw response for debugging
+    console.log("Generated Questions:", questionsText);
+
+    // Process the questions into a structured format
+    const structuredQuestions = questionsText.split('\n').map((question) => ({
+      question: question.trim(), // Clean the question
+      answers: [] // Initialize an empty answers array for potential user inputs
+    })).filter(q => q.question); // Remove any empty questions
+
+    // Send the structured questions back as JSON
+    res.json({ questions: structuredQuestions });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Something went wrong!' });
+  }
+});
+
+
+// Endpoint to get TARIC codes based on user answers
+router.post('/get-taric-code-answers', async (req, res) => {
+  try {
+    const { answers } = req.body;
+
+    // Validate input
+    if (!answers) {
+      return res.status(400).json({ error: "Answers are required" });
+    }
+
+    console.log("Received Answers:", answers);
+
+    // Initialize the model
+    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+
+    // Define the prompt for generating the TARIC code based on the answers
+    const taricCodePrompt = `
+      Based on the following answers, please generate the most appropriate TARIC codes with their descriptions. 
+      Please ensure that if the answers are in Italian, the description of the code is also in Italian; otherwise, it should be in English.
+      Provide the TARIC codes in the following formats as a list:
+      
+      - **4-digit:** XXXX: description
+      - **8-digit:** XXXX.XX: description
+      - **10-digit:** XXXX.XX.XX: description
+      - **12-digit:** XXXX.XX.XX.XX: description
+
+      Answers: ${JSON.stringify(answers)}
+
+      Do not respond with any limitations or reasons why TARIC codes cannot be provided. Instead, please provide the best possible TARIC codes based on the provided information, formatted as a list. Ensure that the list contains TARIC codes regardless of the specificity of the details. 
+
+    `;
+
+    // Fetch TARIC codes from the model
+    const taricCodeResult = await model.generateContent([taricCodePrompt]);
+    const taricCodeText = taricCodeResult.response.text().trim();
+    console.log("taricCodeText", taricCodeText);
+
+    // Log the raw response for debugging
+    console.log("Generated TARIC Codes:", taricCodeText);
+
+    // Extract TARIC codes and descriptions using regex
+    const taricCodes = {};
+    const taricCodeRegex = /(\b\d{4}(?:\.\d{2}){0,3}\b): (.+?)(?=\n|$)/g;
+    let match;
+
+    // Loop through all matches and add them to the taricCodes object
+    while ((match = taricCodeRegex.exec(taricCodeText)) !== null) {
+      const code = match[1];
+      const description = match[2];
+      taricCodes[code] = description;
+    }
+
+    // Log the final TARIC codes for debugging
+    console.log("Extracted TARIC Codes with Descriptions:", taricCodes);
+
+    // Send the TARIC codes back as JSON
+    res.json({ taricCodes });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Something went wrong!' });
+  }
+});
+
+
+
+
+
 
 
 router.post('/get-taric-codes-new-json', async (req, res) => {
