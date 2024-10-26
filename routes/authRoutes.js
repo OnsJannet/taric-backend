@@ -22,7 +22,7 @@ router.post('/register', [
     return res.status(400).json({ errors: errors.array() });
   }
 
-  const { name, email, password, selectedPack, paymentMethodId } = req.body;
+  const { name, email, password, selectedPack } = req.body; // Removed paymentMethodId
   console.log("request", req.body);
 
   try {
@@ -44,7 +44,8 @@ router.post('/register', [
     const user = new User({ name, email, password, pack: selectedPack });
     await user.save();
 
-    // Create a Stripe customer for the user
+    // Commented out Stripe customer creation
+    /*
     const customer = await stripe.customers.create({
       email: user.email,
       payment_method: paymentMethodId,
@@ -57,7 +58,7 @@ router.post('/register', [
     user.stripeCustomerId = customer.id;
     await user.save();
 
-    // Create subscription in Stripe
+    // Commented out subscription creation in Stripe
     const subscription = await stripe.subscriptions.create({
       customer: user.stripeCustomerId,
       items: [{
@@ -83,6 +84,7 @@ router.post('/register', [
       status: subscription.status,
     });
     await subscriptionData.save();
+    */
 
     // Generate JWT token
     const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '1d' });
@@ -96,6 +98,7 @@ router.post('/register', [
     res.status(500).json({ message: 'Server error' });
   }
 });
+
 
 
 // Login user
