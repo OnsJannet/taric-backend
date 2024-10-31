@@ -23,10 +23,8 @@ const loadDataMiddleware = async (req, res, next) => {
   next();
 };
 
-
-
 // Initialize Google Generative AI instance
-const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY); // Use your Google API key directly here
+const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY);
 
 // POST route to get word from description
 router.post('/get-word', async (req, res) => {
@@ -203,7 +201,6 @@ router.post('/get-taric-codes', async (req, res) => {
   }
 });
 
-
 // Endpoint to get suggested terms
 router.post('/get-suggested-terms', async (req, res) => {
   try {
@@ -226,16 +223,26 @@ router.post('/get-suggested-terms', async (req, res) => {
 
     // Generate suggestions for terms with materials, uses, and category
     const suggestionPrompt = `
-    Given the following description, please generate suggested terms in ${language === 'it' ? 'Italian' : 'English'} without any additional text:
-    
-    Description: "${textToProcess}".
+    Given the product description, provide suggested terms for classification, along with relevant details about each term in ${language === 'it' ? 'Italian' : 'English'}.
 
-    Provide the terms in the following format:
-    - Term: 
-      - Category: ...
-      - Materials: ...
-      - Uses: ...
-    Categorize the term based on its likely use (e.g., "Household item", "Industrial equipment", "Electronics", etc.).
+    - Translate terms, categories, materials, and uses to ${language === 'it' ? 'Italian' : 'English'} where appropriate.
+    - Use only the description given without adding "term" or other text.
+
+    Description: "${textToProcess}"
+
+    Response format (in JSON):
+    {
+      "suggestedTerms": [
+        {
+          "term": "Suggested term in ${language === 'it' ? 'Italian' : 'English'}",
+          "category": "Product category (e.g., Household item, Beverage, Electronics, etc.) in ${language === 'it' ? 'Italian' : 'English'}",
+          "materials": "Main materials (e.g., metal, plastic, milk, coffee) in ${language === 'it' ? 'Italian' : 'English'}",
+          "uses": "Main uses (e.g., consumption, cooking, industrial use) in ${language === 'it' ? 'Italian' : 'English'}"
+        }
+      ]
+    }
+    
+    Only respond with the JSON structure, filled out based on the description provided, in ${language === 'it' ? 'Italian' : 'English'}.
     `;
 
     // Fetch suggestions from the model
@@ -245,41 +252,19 @@ router.post('/get-suggested-terms', async (req, res) => {
     // Log the raw response from the model for debugging
     console.log("Raw suggestion response:", suggestionResponseText);
 
-    // Clean up formatting
+    // Clean up formatting by removing any code block markers (` ```json ... ``` `)
     suggestionResponseText = suggestionResponseText
-      .replace(/\*\*/g, '') // Remove bold formatting
+      .replace(/```json|```/g, '') // Remove markdown code block syntax
       .trim(); // Trim leading/trailing whitespace
 
-    // Split the response into individual terms based on new lines and dashes
-    const suggestedTerms = suggestionResponseText.split(/\n(?=-)/).map(term => {
-      // Clean up each term
-      const cleanedTerm = term.trim();
-
-      // Extract the term name using a regex to capture up to the first colon
-      const termMatch = cleanedTerm.match(/^(.+?):/);
-      if (!termMatch) {
-        console.warn(`Unexpected format for term: ${cleanedTerm}`);
-        return null; // Skip if not in expected format
-      }
-
-      const termName = termMatch[1].trim();
-
-      // Split category, materials, and uses
-      const categoryMatch = cleanedTerm.match(/Category:\s*(.+?)(?:\n|$)/);
-      const materialsMatch = cleanedTerm.match(/Materials:\s*(.+?)(?:\n|$)/);
-      const usesMatch = cleanedTerm.match(/Uses:\s*(.+?)(?:\n|$)/);
-
-      const category = categoryMatch ? categoryMatch[1].trim() : 'Uncategorized';
-      const materials = materialsMatch ? materialsMatch[1].trim() : '';
-      const uses = usesMatch ? usesMatch[1].trim() : '';
-
-      return {
-        term: termName,
-        category: category,
-        materials: materials,
-        uses: uses,
-      };
-    }).filter(term => term !== null); // Filter out any null entries
+    // Parse JSON response to extract suggested terms
+    let suggestedTerms;
+    try {
+      suggestedTerms = JSON.parse(suggestionResponseText).suggestedTerms;
+    } catch (error) {
+      console.error("Error parsing JSON:", error);
+      return res.status(400).json({ error: 'Invalid JSON format returned from model. Please check the model response.' });
+    }
 
     // Log the final suggested terms for debugging
     console.log("Suggested terms:", suggestedTerms);
@@ -291,6 +276,8 @@ router.post('/get-suggested-terms', async (req, res) => {
     res.status(500).json({ error: 'Something went wrong!' });
   }
 });
+
+
 
 
 router.post('/get-suggested-taric-codes', async (req, res) => {
@@ -338,6 +325,7 @@ router.post('/get-suggested-taric-codes', async (req, res) => {
       Description: "${textToProcess}".
 
       Provide the TARIC codes in this format:
+
       - 4-digit TARIC code: XXXX
       - 8-digit TARIC code: XXXXXXXX
       - 10-digit TARIC code: XXXXXXXXXX
@@ -377,9 +365,6 @@ router.post('/get-suggested-taric-codes', async (req, res) => {
   }
 });
 
-
-
-
 // Endpoint to get TARIC codes for the selected suggestion
 router.post('/get-taric-code-questions', async (req, res) => {
   try {
@@ -399,26 +384,50 @@ router.post('/get-taric-code-questions', async (req, res) => {
     // Initialize the model
     const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
 
-    // Define the prompt for generating questions
+    // Define the prompt for generating detailed TARIC-specific questions
     const questionPrompt = `
-      Based on the following term, generate a series of questions to determine the appropriate TARIC code. 
+      Given the following term, create a series of questions to determine the appropriate TARIC code. 
       Ask these questions in ${language === 'it' ? 'Italian' : 'English'}.
+
+      The questions should cover all critical aspects needed for TARIC classification, including:
+      - Physical properties (material composition, dimensions, weight, etc.)
+      - Functional characteristics (usage, intended recipient, consumption type, etc.)
+      - Any required technical specifics (e.g., voltage for electronics, alcohol content for beverages)
+      - Regulatory requirements (e.g., whether the product meets safety standards)
       
-      For each question, provide answer suggestions in a clear format, such as:
-      
+      For each term, tailor questions to what is typical for that type of product as per TARIC code specifications. 
+      Here are a few examples of specific criteria you might use:
+      - For textiles: "What material is used?", "Is it intended for household or industrial use?"
+      - For electronics: "What is the voltage requirement?", "Is it used for personal or industrial purposes?"
+      - For vehicles: "What type of vehicle?", "Is it for cargo or passenger transport?"
+      - For chemicals: "What is the composition?", "Is it classified as hazardous?"
+
+      Ask me about:
+        - Customs Duties and VAT: Specific customs duties based on percentage values or duty percentage requirements.
+        - Origin of Goods: Preferential tariffs or local content percentages that may impact the classification.
+        - Composition of Goods: Material composition or percentage of each component for composite goods.
+        - Specific Exemptions: Any exemptions based on environmental impact, production methods, or other characteristics.
+        - Product Classification Criteria: Details like percentage weight, volume, or other ingredient characteristics that affect classification.
+        - Mixed Goods: Percentage breakdown for goods that fall into multiple categories.
+        - Value Thresholds: Any applicable value or quantity thresholds impacting the rate or code.
+
+      For yes or no questions please don't give suggestions of simply yes or no but  give the entire phrase
+
+      Format the questions in JSON like this:
+
       {
         "questions": [
           {
-            "question": "1. Di che materiale è fatto l'appendiabiti?",
+            "question": "1. What is the primary material of the product?",
             "answers": [
               {
-                "answer": "answer1"
+                "answer": "Metal"
               },
               {
-                "answer": "answer2"
+                "answer": "Plastic"
               },
               {
-                "answer": "answer3"
+                "answer": "Wood"
               }
             ]
           }
@@ -427,7 +436,7 @@ router.post('/get-taric-code-questions', async (req, res) => {
 
       Term: "${term}"
 
-      Ensure to cover all aspects needed for TARIC classification. Please, if there's a yes or no answer, provide a complete phrase instead of just yes or no.
+      Ensure questions are detailed, relevant to TARIC classification, and answer options are provided in complete phrases (e.g., "Yes, it is for industrial use"). If the product requires specific classification points, make sure to ask about them.
     `;
 
     // Fetch questions from the model
@@ -440,39 +449,31 @@ router.post('/get-taric-code-questions', async (req, res) => {
     // Clean and parse the generated JSON
     let parsedQuestions;
     try {
-      // Remove unwanted characters or ensure proper formatting
       const cleanedText = questionsText
-        .replace(/```json/, '')   // Remove the opening backticks and json
-        .replace(/```/, '')        // Remove the closing backticks
-        .trim();                   // Trim whitespace
+        .replace(/```json/, '')  // Remove opening ```json
+        .replace(/```/, '')      // Remove closing ```
+        .replace(/\\n/g, '')     // Remove newline escape characters
+        .trim();
 
       parsedQuestions = JSON.parse(cleanedText);
     } catch (parseError) {
       console.error("Error parsing JSON:", parseError);
-      return res.status(400).json({ error: 'Invalid JSON format returned from model.' });
+      return res.status(400).json({ error: 'Invalid JSON format returned from model. Please check the model response.' });
     }
 
     // Process and reformat the questions and answers
-    const structuredQuestions = parsedQuestions.questions.map(q => {
-      return {
-        question: q.question,
-        answers: q.answers.map(a => {
-          return a; // Return the original answer without any formatting
-        })
-      };
-    });
+    const structuredQuestions = parsedQuestions.questions.map(q => ({
+      question: q.question,
+      answers: q.answers.map(a => a) // Return the original answer without any formatting
+    }));
 
     // Send the structured questions back as JSON
     res.json({ questions: structuredQuestions });
   } catch (error) {
-    console.error(error);
+    console.error("Error processing request:", error);
     res.status(500).json({ error: 'Something went wrong!' });
   }
 });
-
-
-
-
 
 
 
@@ -536,14 +537,6 @@ router.post('/get-taric-code-answers', async (req, res) => {
 });
 
 
-
-
-
-
-
-
-
-
 router.post('/get-taric-codes-new-json', async (req, res) => {
   try {
     const { word, materials, uses, language } = req.body;
@@ -590,9 +583,6 @@ router.post('/get-taric-codes-new-json', async (req, res) => {
 });
 
 module.exports = router;
-
-
-
 
 
 
