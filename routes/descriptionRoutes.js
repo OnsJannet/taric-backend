@@ -476,27 +476,29 @@ router.post('/get-taric-code-questions', async (req, res) => {
 });
 
 
-
-
 // Endpoint to get TARIC codes based on user answers
 router.post('/get-taric-code-answers', async (req, res) => {
-  const { answers, language } = req.body;
+  const { answers, language, term } = req.body;
   const isItalian = language === 'it';
 
-  if (!answers || !language) {
-    return res.status(400).json({ error: "Answers and language are required" });
+  if (!answers || !language || !term) {
+    return res.status(400).json({ error: "Answers, language, and term are required" });
   }
 
   try {
     console.log("Received Answers:", answers);
     console.log("Language:", language);
+    console.log("Term:", term);
 
     const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
 
     const taricCodePrompt = `
-      Based on the following answers, please generate the most appropriate TARIC codes with their descriptions. 
-      Please ensure that if the answers are in Italian, the description of the code is also in Italian; otherwise, it should be in English.
-      Provide the TARIC codes in the following formats as a list:
+      Based on the following answers and the specified term, please generate the most appropriate TARIC codes with their descriptions.
+      Ensure that the descriptions are in Italian if the answers are in Italian; otherwise, provide them in English.
+      Focus on matching the TARIC codes to the term provided as closely as possible, considering the details in the answers.
+
+      Please format the TARIC codes in a structured list as follows:
+      Please make sure that the description are accurate to the real taric code descriptions
       
       {
         "taricCodes": [
@@ -507,16 +509,17 @@ router.post('/get-taric-code-answers', async (req, res) => {
         ]
       }
 
+      Term: ${term}
       Answers: ${JSON.stringify(answers)}
 
-      Do not respond with any limitations or reasons why TARIC codes cannot be provided. Instead, please provide the best possible TARIC codes based on the provided information, formatted as a list. Ensure that the list contains TARIC codes regardless of the specificity of the details. 
+      Please do not provide any disclaimers or limitations. Instead, offer the best possible TARIC codes based on the term and answers provided, regardless of specificity.
     `;
 
     const taricCodeResult = await model.generateContent([taricCodePrompt]);
     let taricCodeText = taricCodeResult.response.text().trim();
     console.log("taricCodeText", taricCodeText);
 
-    // Remove unwanted formatting characters
+    // Clean up the response by removing unwanted formatting
     taricCodeText = taricCodeText.replace(/```json|```/g, '');
 
     // Parse taricCodeText as JSON
@@ -525,6 +528,7 @@ router.post('/get-taric-code-answers', async (req, res) => {
     const taricCodesArray = taricCodesObject?.taricCodes || [];
     console.log("Extracted TARIC Codes with Descriptions:", taricCodesArray);
 
+    // Return the result with a localized message
     if (isItalian) {
       return res.json({ taricCodes: taricCodesArray, message: "Codici TARIC generati con successo" });
     } else {
@@ -535,6 +539,7 @@ router.post('/get-taric-code-answers', async (req, res) => {
     res.status(500).json({ error: isItalian ? 'Qualcosa è andato storto!' : 'Something went wrong!' });
   }
 });
+
 
 
 router.post('/get-taric-codes-new-json', async (req, res) => {
