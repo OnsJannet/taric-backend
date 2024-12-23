@@ -1223,7 +1223,7 @@ router.post("/get-taric-code-json", async (req, res) => {
     if (!cachedData || currentTime - lastFetchTime > CACHE_DURATION) {
       console.log("Cache expired or not found. Fetching data...");
       const response = await fetch(
-        "https://raw.githubusercontent.com/OnsJannet/taric-backend/refs/heads/main/output.json"
+        "https://raw.githubusercontent.com/OnsJannet/taric-backend/refs/heads/main/nested_output.json"
       );
       cachedData = await response.json();
       lastFetchTime = currentTime;
@@ -1233,15 +1233,16 @@ router.post("/get-taric-code-json", async (req, res) => {
     }
 
     // Filter data with cached JSON
-    const matchingFamilies = cachedData.filter((item) => {
-      console.log("Inspecting item:", item);
-      return (
-        item.family &&
-        item.family.Code &&
-        item.family.Code.Goodscode &&
-        item.family.Code.Goodscode.replace(/\s/g, "").startsWith(code)
-      );
-    });
+    const matchingFamilies = cachedData
+      .flatMap((item) => (Array.isArray(item.family) ? item.family : [item.family]))
+      .filter((familyItem) => {
+        console.log("Inspecting family item:", familyItem);
+        return (
+          familyItem.Code &&
+          familyItem.Code["Goods code"] &&
+          familyItem.Code["Goods code"].replace(/\s/g, "").startsWith(code)
+        );
+      });
 
     console.log("Matching families:", matchingFamilies);
 
@@ -1250,12 +1251,14 @@ router.post("/get-taric-code-json", async (req, res) => {
       return res.status(404).json({ error: "Code not found in data file" });
     }
 
-    res.json(matchingFamilies.map((item) => item.family));
+    res.json(matchingFamilies);
   } catch (error) {
     console.error("Error processing request:", error);
     res.status(500).json({ error: "Something went wrong!" });
   }
 });
+
+
 
 // Recursive function to dynamically ask questions based on JSON structure
 function askQuestion(subCategories, level) {
@@ -1338,10 +1341,7 @@ router.post("/get-taric-code-by-structure", async (req, res) => {
   }
 
   try {
-    console.log("Received Chapter:", chapter);
-    console.log("Heading:", heading);
-    console.log("Subheadings:", JSON.stringify(subheadings, null, 2));
-    console.log("Questions:", JSON.stringify(questions, null, 2));
+
 
     //const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
     const model = genAI.getGenerativeModel({ model: "gemini-pro" });
