@@ -1132,7 +1132,7 @@ const searchGoodscode = async (word, language) => {
     // Fetch the JSON file from the URL using axios
     //"https://raw.githubusercontent.com/OnsJannet/taric-backend/refs/heads/main/output.json"
     const response = await axios.get(
-        "https://raw.githubusercontent.com/OnsJannet/taric-backend/refs/heads/main/nested_output.json"
+      "https://raw.githubusercontent.com/OnsJannet/taric-backend/refs/heads/main/nested_output.json"
     );
     const data = response.data;
 
@@ -1234,7 +1234,9 @@ router.post("/get-taric-code-json", async (req, res) => {
 
     // Filter data with cached JSON
     const matchingFamilies = cachedData
-      .flatMap((item) => (Array.isArray(item.family) ? item.family : [item.family]))
+      .flatMap((item) =>
+        Array.isArray(item.family) ? item.family : [item.family]
+      )
       .filter((familyItem) => {
         console.log("Inspecting family item:", familyItem);
         return (
@@ -1257,8 +1259,6 @@ router.post("/get-taric-code-json", async (req, res) => {
     res.status(500).json({ error: "Something went wrong!" });
   }
 });
-
-
 
 // Recursive function to dynamically ask questions based on JSON structure
 function askQuestion(subCategories, level) {
@@ -1341,8 +1341,6 @@ router.post("/get-taric-code-by-structure", async (req, res) => {
   }
 
   try {
-
-
     //const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
     const model = genAI.getGenerativeModel({ model: "gemini-pro" });
 
@@ -1948,8 +1946,101 @@ router.post("/get-taric-code-family", async (req, res) => {
     ]
     
     }
+
+    }
     
-    `;
+    Example for "LOGLIO D'ITALIA - LOLIUM MULTIFLORUM LAM. SACCHI 0.0 10 BIG BOSS" or "SEMI DI MELONE - SEMENTI CARTONE 3.0 10":
+    
+    {
+    
+    "taricCodes": [
+    
+    { "code": "1209", "description": "	Semi, frutti e spore da sementa" }
+    
+    ]
+    
+    }
+    
+    Example for "A description that includes RISO":
+    
+    {
+    
+    "taricCodes": [
+    
+    { "code": "1006", "description": "Riso" }
+    
+    ]
+    
+    }
+
+    Example for "FARINA DI RISO" or "FARINA DI MIGLIO - KURRAKAN FLOUR":
+    
+    {
+    
+    "taricCodes": [
+    
+    { "code": "1102", "description": "Farine di cereali diversi dal frumento (grano) o dal frumento segalato" }
+    
+    ]
+
+        Example for "PESCI SECCHI SALATI O IN SALAMOIA PESCI AFFUMICATI ANCHE COTTI
+PRIMA O DURANTE L AFFUMICATURA FARINE POLVERI E AGGLOMERATI IN
+FORMA DI PELLETS DI PESCI ATTI ALL ALIMENTAZIONE UMANA, ALTRI,
+ALTRI, ALTRI" or "PESCI SECCHI SALATI O IN SALAMOIA PESCI AFFUMICATI ANCHE COTTI
+PRIMA O DURANTE L AFFUMICATURA FARINE POLVERI E AGGLOMERATI IN
+FORMA DI PELLETS DI PESCI ATTI ALL ALIMENTAZIONE UMANA, ACCIUGHE
+ENGRAULIS SPP, ALTRI":
+    
+    {
+    
+    "taricCodes": [
+    
+    { "code": "0305", "description": "	
+Pesci secchi, salati o in salamoia; pesci affumicati, anche cotti prima o durante l'affumicatura
+" }
+    
+    ]
+
+    Example for "ALTRI CEREALIBBQ CHANACHUR":
+    
+    {
+    
+    "taricCodes": [
+    
+    { "code": "1008", "description": "	
+Grano saraceno, miglio e scagliola; altri cereali
+
+" }
+    
+    ]
+
+        Example for "FARINA DI CECI" or "FARINA DI LENTICCHIE" or "FARINA DI PALMYRAH" or "FARINA DI MANIOCA":
+    
+    {
+    
+    "taricCodes": [
+    
+    { "code": "1106", "description": "	
+Farine, semolini e polveri dei legumi da granella secchi della voce)0713, di sago o di radici o tuberi della voce)0714)e dei prodotti del capitolo)8
+
+
+" }
+    
+    ]
+    
+    }
+    
+        Example for "PARTI ED ACCESSORI DI MACCHINE DELLA VOCE8469":
+    
+    {
+    
+    "taricCodes": [
+    
+    { "code": "8473", "description": "Parti e accessori per macchine per scrivere o trattamento testi" }
+    
+    ]
+    
+    }`;
 
     // Initialize and generate content using the AI model
     const model = genAI.getGenerativeModel({ model: "gemini-pro" });
