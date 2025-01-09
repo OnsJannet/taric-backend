@@ -23,8 +23,6 @@ const port = process.env.PORT || 5000;
 // Connect to MongoDB
 connectDB();
 
-
-
 // Middleware
 app.use(cors({ 
   origin: '*', // Allow all origins
