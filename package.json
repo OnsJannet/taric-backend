@@ -17,7 +17,6 @@
     "@google/generative-ai": "^0.21.0",
     "@vitalets/google-translate-api": "^9.2.0",
     "axios": "^1.7.4",
-    "backend": "file:",
     "bcryptjs": "^2.4.3",
     "cheerio": "^1.0.0",
     "cookie-parser": "^1.4.6",
