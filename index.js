@@ -25,11 +25,15 @@ connectDB();
 // CORS configuration
 app.use(
   cors({
-    origin: "http://localhost:3000", // Allow your frontend to access the backend
+    origin: [
+      "http://localhost:3000", // Allow localhost for local development
+      "https://taric-frontend.vercel.app" // Allow the deployed frontend URL
+    ], 
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
+
 
 // Handling preflight OPTIONS requests
 app.options("*", (req, res) => {
