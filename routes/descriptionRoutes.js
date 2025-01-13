@@ -5,10 +5,18 @@ const axios = require("axios");
 const fetch = require("node-fetch");
 const path = require("path");
 const fs = require("fs");
+const OpenAI = require("openai");
 
 const router = express.Router();
 
 let goodsData = [];
+
+// Initialize OpenAI with API key
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
+
+
 
 // Load TARIC data from the given URL
 const loadGoodsData = async () => {
@@ -2083,5 +2091,107 @@ Farine, semolini e polveri dei legumi da granella secchi della voce)0713, di sag
     });
   }
 });
+
+router.post("/get-taric-code-family-openai", async (req, res) => {
+  console.log("process.env.OPENAI_API_KEY", process.env.OPENAI_API_KEY);
+  try {
+    const { term, language } = req.body;
+
+    // Validate input
+    if (!term || typeof term !== "string") {
+      return res.status(400).json({ error: "Term is required and must be a string." });
+    }
+    if (!["it", "en"].includes(language)) {
+      return res.status(400).json({ error: "Unsupported language. Only 'it' or 'en' are allowed." });
+    }
+
+    const isItalian = language === "it";
+
+    // Define the AI prompt
+    const taricCodePrompt = `
+    Given the term "${term}", identify the primary material and provide the related TARIC codes grouped by their first four digits. Use the hierarchical structure of TARIC codes and their descriptions. Only return a JSON object in this format:
+    
+    {
+      "taricCodes": [
+        { "code": "XXXX", "description": "General description for the group" }
+      ]
+    }
+    
+    Guidelines:
+    1. Carefully analyze the input term to infer the material, purpose, and context.
+    2. Focus on identifying TARIC codes that are most relevant to the term's intended use or industry.
+    3. Only include relevant TARIC codes and descriptions grouped by material, purpose, or industry.
+    4. Use hierarchical descriptions in ${isItalian ? "Italian" : "English"} for clarity.
+    5. Always return exactly four-digit codes (not less, not more).
+    6. Cross-check against TARIC database logic to avoid generic or unrelated codes.
+    7. Make sure to include only relevant TARIC codes and descriptions, and ensure the response is structured exactly as shown above with no additional text.
+    8. Make sure to use the latest italian taric code version preferably from this website: https://aidaonline7.adm.gov.it/nsitaricinternet/NomenclatureImportServlet
+    9. just return the json nothing else
+    `;
+
+    // Request to OpenAI API
+    const response = await openai.chat.completions.create({
+      model: "gpt-4",
+      messages: [{ role: "user", content: taricCodePrompt }],
+      max_tokens: 500,
+      temperature: 0.7,
+    });
+
+    // Extract the generated response
+    const taricCodeText = response.choices[0]?.message?.content.trim();
+    if (!taricCodeText) {
+      throw new Error("No response from OpenAI.");
+    }
+
+    console.log("Generated TARIC Code Text:", taricCodeText);
+
+    // Clean up the response to extract only the JSON part
+    const cleanedTaricCodeText = taricCodeText.replace(/```json|```/g, ""); // Remove Markdown formatting
+
+    // Regex to extract the JSON part, excluding any additional explanation
+    const regex = /{(?:[^{}]|(?:{[^}]*}))*}/;
+    const taricCodeMatch = cleanedTaricCodeText.match(regex);
+
+    let taricCodesArray = [];
+    if (taricCodeMatch && taricCodeMatch[0]) {
+      try {
+        const taricCodesObject = JSON.parse(taricCodeMatch[0]);
+        taricCodesArray = taricCodesObject?.taricCodes || [];
+      } catch (error) {
+        console.error("Error parsing TARIC JSON:", error);
+      }
+    }
+
+    // Return the result with a localized message
+    if (taricCodesArray.length === 0) {
+      return res.status(404).json({
+        error: isItalian
+          ? "Nessun codice TARIC valido trovato per il termine fornito."
+          : "No valid TARIC codes found for the provided term.",
+      });
+    }
+
+    return res.json({
+      taricCodes: taricCodesArray,
+      message: isItalian
+        ? "Codici TARIC generati con successo."
+        : "TARIC codes generated successfully.",
+    });
+  } catch (error) {
+    console.error("Error processing TARIC codes:", error);
+
+    // Localize error message
+    const errorMessage = error.message || "Unknown error occurred.";
+    return res.status(500).json({
+      error: language === "it"
+        ? `Qualcosa è andato storto: ${errorMessage}`
+        : `Something went wrong: ${errorMessage}`,
+    });
+  }
+});
+
+
+
+
 
 module.exports = router;
