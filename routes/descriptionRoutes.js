@@ -2109,24 +2109,19 @@ router.post("/get-taric-code-family-openai", async (req, res) => {
 
     // Define the AI prompt
     const taricCodePrompt = `
-    Given the term "${term}", identify the primary material and provide the related TARIC codes grouped by their first four digits. Use the hierarchical structure of TARIC codes and their descriptions. Only return a JSON object in this format:
-    
-    {
-      "taricCodes": [
-        { "code": "XXXX", "description": "General description for the group" }
-      ]
-    }
-    
-    Guidelines:
-    1. Carefully analyze the input term to infer the material, purpose, and context.
-    2. Focus on identifying TARIC codes that are most relevant to the term's intended use or industry.
-    3. Only include relevant TARIC codes and descriptions grouped by material, purpose, or industry.
-    4. Use hierarchical descriptions in ${isItalian ? "Italian" : "English"} for clarity.
-    5. Always return exactly four-digit codes (not less, not more).
-    6. Cross-check against TARIC database logic to avoid generic or unrelated codes.
-    7. Make sure to include only relevant TARIC codes and descriptions, and ensure the response is structured exactly as shown above with no additional text.
-    8. Make sure to use the latest italian taric code version preferably from this website: https://aidaonline7.adm.gov.it/nsitaricinternet/NomenclatureImportServlet
-    9. just return the json nothing else
+Only return a JSON object in this format:
+Can you tell me the 4-digit "heading" or "commodity code" and the correct description used in the TARIC code that the word "${term}" could correspond to? Only return a JSON object in this format:
+
+{
+  "taricCodes": [
+    { "code": "XXXX", "description": "Correct description used in the TARIC code" }
+  ]
+}
+
+Guidelines:
+1. Provide descriptions in ${isItalian ? "Italian" : "English"} for clarity.
+2. Just return the JSON, nothing else.
+
     `;
 
     // Request to OpenAI API
@@ -2189,6 +2184,7 @@ router.post("/get-taric-code-family-openai", async (req, res) => {
     });
   }
 });
+
 
 
 
