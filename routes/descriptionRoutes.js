@@ -2107,32 +2107,34 @@ router.post("/get-taric-code-family-openai", async (req, res) => {
 
     const isItalian = language === "it";
 
-    // Define the AI prompt
+    // Define the AI prompt with more detailed instructions
     const taricCodePrompt = `
-Only return a JSON object in this format:
-Can you tell me the 4-digit "heading" or "commodity code" and the correct description used in the TARIC code that the word "${term}" could correspond to? Only return a JSON object in this format please give me all possibilities:
-
-{
-  "taricCodes": [
-    { "code": "XXXX", "description": "Correct description used in the TARIC code" }
-  ]
-}
-
-Guidelines:
-1. Provide descriptions in ${isItalian ? "Italian" : "English"} for clarity.
-2. Just return the JSON, nothing else.
-
+    Act as an expert in TARIC codes. Your task is to identify the possible 4-digit "heading" or "commodity codes" and their corresponding descriptions that the term "${term}" may relate to in the TARIC classification system. Respond only with a JSON object in the following format:
+    
+    {
+      "taricCodes": [
+        { "code": "XXXX", "description": "Description in TARIC code" },
+        { "code": "YYYY", "description": "Description in TARIC code" }
+      ]
+    }
+    
+    Guidelines:
+    1. Provide descriptions in ${isItalian ? "Italian" : "English"} based on the language preference.
+    2. Return only the JSON object—no additional text, explanations, or commentary.
+    3. Include all possible 4-digit "heading" or "commodity codes" relevant to the term, covering various materials or contexts.
+    4. Ensure the descriptions are accurate and aligned with the official TARIC classification terminology.
     `;
+    
 
     // Request to OpenAI API
     const response = await openai.chat.completions.create({
       model: "gpt-4",
       messages: [{ role: "user", content: taricCodePrompt }],
       max_tokens: 500,
-      temperature: 0.7,
+      temperature: 1,
     });
 
-    // Extract the generated response
+    // Extract and clean the generated response
     const taricCodeText = response.choices[0]?.message?.content.trim();
     if (!taricCodeText) {
       throw new Error("No response from OpenAI.");
@@ -2140,10 +2142,10 @@ Guidelines:
 
     console.log("Generated TARIC Code Text:", taricCodeText);
 
-    // Clean up the response to extract only the JSON part
+    // Clean up response (removing any Markdown or extra explanation)
     const cleanedTaricCodeText = taricCodeText.replace(/```json|```/g, ""); // Remove Markdown formatting
 
-    // Regex to extract the JSON part, excluding any additional explanation
+    // Regex to extract the JSON part of the response
     const regex = /{(?:[^{}]|(?:{[^}]*}))*}/;
     const taricCodeMatch = cleanedTaricCodeText.match(regex);
 
@@ -2184,6 +2186,7 @@ Guidelines:
     });
   }
 });
+
 
 
 

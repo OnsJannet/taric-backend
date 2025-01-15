@@ -46,7 +46,7 @@ app.options("*", (req, res) => {
 // Middleware for chunking large request bodies
 let requestChunks = {};  // Temporary storage for chunks
 
-app.use(express.json({ limit: "50mb" })); // Increased limit to 50MB
+app.use(express.json({ limit: "200mb" })); // Increased limit to 200mb
 
 // Middleware to log request details
 app.use((req, res, next) => {
@@ -60,7 +60,7 @@ app.use((req, res, next) => {
   );
 
   // Log the app body size limit
-  const bodySizeLimit = "50mb"; // You can adjust this to reflect your configured limit
+  const bodySizeLimit = "200mb"; // You can adjust this to reflect your configured limit
   console.log(`[${timestamp}] App body size limit is: ${bodySizeLimit}`);
 
   next(); // Pass control to the next middleware
