@@ -2110,7 +2110,7 @@ router.post("/get-taric-code-family-openai", async (req, res) => {
     // Define the AI prompt
     const taricCodePrompt = `
 Only return a JSON object in this format:
-Can you tell me the 4-digit "heading" or "commodity code" and the correct description used in the TARIC code that the word "${term}" could correspond to? Only return a JSON object in this format:
+Can you tell me the 4-digit "heading" or "commodity code" and the correct description used in the TARIC code that the word "${term}" could correspond to? Only return a JSON object in this format please give me all possibilities:
 
 {
   "taricCodes": [
