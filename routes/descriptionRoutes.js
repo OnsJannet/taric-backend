@@ -2131,7 +2131,7 @@ router.post("/get-taric-code-family-openai", async (req, res) => {
       model: "gpt-4",
       messages: [{ role: "user", content: taricCodePrompt }],
       max_tokens: 500,
-      temperature: 1,
+      temperature: 0,
     });
 
     // Extract and clean the generated response
