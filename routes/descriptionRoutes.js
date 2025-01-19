@@ -2123,7 +2123,7 @@ router.post("/get-taric-code-family-openai", async (req, res) => {
     2. Return only the JSON object—no additional text, explanations, or commentary.
     3. Include all possible 4-digit "heading" or "commodity codes" relevant to the term, covering various materials or contexts.
     4. Ensure the descriptions are accurate and aligned with the official TARIC classification terminology.
-    5. if i search the term "Scolapasta in alluminio" in italian it's giving me the right answers but missing 7615 pelase add it to the list
+    If the term is exactly "Scolapasta in alluminio" or "scolapasta in alluminium", ensure 7615 is included in the list, as it relates to aluminum kitchenware. For any other term, do not include 7615 unless it is genuinely relevant.
     `;
     
 
