@@ -450,6 +450,77 @@ router.post("/get-suggested-terms", async (req, res) => {
   }
 });
 
+router.post("/get-term-definition", async (req, res) => {
+  try {
+    const { term, language } = req.body;
+
+    // Validate input
+    if (!term) {
+      return res.status(400).json({ error: "Term is required" });
+    }
+    if (!["it", "en"].includes(language)) {
+      return res.status(400).json({ error: "Unsupported language" });
+    }
+
+    console.log("language: " + language);
+
+    // Initialize the model
+    const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+
+    // Prompt for generating the term definition
+    const definitionPrompt = `
+    Provide a concise definition (a short paragraph) for the given term in ${
+      language === "it" ? "Italian" : "English"
+    }. The definition should be simple, clear, and suitable for general understanding.
+
+    Term: "${term}"
+
+    Response format (in JSON):
+    {
+      "definition": "Definition of the term in ${
+        language === "it" ? "Italian" : "English"
+      }"
+    }
+
+    Only respond with the JSON structure, filled out based on the term provided.
+    `;
+
+    // Fetch the definition from the model
+    const definitionResult = await model.generateContent([definitionPrompt]);
+    let definitionResponseText = definitionResult.response.text().trim();
+
+    // Log the raw response for debugging
+    console.log("Raw definition response:", definitionResponseText);
+
+    // Clean up formatting by removing any code block markers
+    definitionResponseText = definitionResponseText
+      .replace(/```json|```/g, "")
+      .trim();
+
+    // Parse JSON response to extract the definition
+    let definition;
+    try {
+      definition = JSON.parse(definitionResponseText).definition;
+    } catch (error) {
+      console.error("Error parsing JSON:", error);
+      return res.status(400).json({
+        error:
+          "Invalid JSON format returned from model. Please check the model response.",
+      });
+    }
+
+    // Log the final definition for debugging
+    console.log("Term definition:", definition);
+
+    // Send the term definition back as JSON
+    res.json({ term, definition });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Something went wrong!" });
+  }
+});
+
+
 router.post("/get-suggested-taric-codes", async (req, res) => {
   try {
     const { description, language } = req.body;
