@@ -555,7 +555,7 @@ router.post("/get-taric-summary", async (req, res) => {
       }"
     }
 
-    Only respond with the JSON structure, filled out based on the term provided.
+    Only respond with the JSON structure, filled out based on the term provided make sure to alwawys return the json above.
     `;
 
     // Fetch the definition from the model
