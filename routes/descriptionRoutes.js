@@ -540,6 +540,7 @@ router.post("/get-taric-summary", async (req, res) => {
     // Prompt for generating the TARIC code summary
     const definitionPrompt = `
     Provide a detailed overview of the TARIC code for the given product. Include the following elements:  
+    0. Please alwawys mention the product
     1. A general explanation that the TARIC code for the product depends on its composition, characteristics, and materials used.  
     2. Mention that the product can be classified into different categories based on key factors such as its composition, ingredients, or usage.  
     3. State that the applicable customs duties and trade regulations may vary depending on the specific classification of the product.  
