@@ -520,6 +520,80 @@ router.post("/get-term-definition", async (req, res) => {
   }
 });
 
+router.post("/get-taric-summary", async (req, res) => {
+  try {
+    const { term, language } = req.body;
+
+    // Validate input
+    if (!term) {
+      return res.status(400).json({ error: "Term is required" });
+    }
+    if (!["it", "en"].includes(language)) {
+      return res.status(400).json({ error: "Unsupported language" });
+    }
+
+    console.log("language: " + language);
+
+    // Initialize the model
+    const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+
+    // Prompt for generating the TARIC code summary
+    const definitionPrompt = `
+    Provide a detailed overview of the TARIC code for the given product. Include the following elements:  
+    1. A general explanation that the TARIC code for the product depends on its composition, characteristics, and materials used.  
+    2. Mention that the product can be classified into different categories based on key factors such as its composition, ingredients, or usage.  
+    3. State that the applicable customs duties and trade regulations may vary depending on the specific classification of the product.  
+    4. Include a note that trade agreements or preferential tariffs may influence the customs duties on the product's imports.  
+    5. Conclude by advising to consult Our Application (Easy Taric) to get the right taric code.
+
+    Term: "${term}"
+
+    Response format (in JSON):
+    {
+      "definition": "Definition of the term in ${
+        language === "it" ? "Italian" : "English"
+      }"
+    }
+
+    Only respond with the JSON structure, filled out based on the term provided.
+    `;
+
+    // Fetch the definition from the model
+    const definitionResult = await model.generateContent([definitionPrompt]);
+    let definitionResponseText = definitionResult.response.text().trim();
+
+    // Log the raw response for debugging
+    console.log("Raw definition response:", definitionResponseText);
+
+    // Clean up formatting by removing any code block markers
+    definitionResponseText = definitionResponseText
+      .replace(/```json|```/g, "")
+      .trim();
+
+    // Parse JSON response to extract the definition
+    let definition;
+    try {
+      definition = JSON.parse(definitionResponseText).definition;
+    } catch (error) {
+      console.error("Error parsing JSON:", error);
+      return res.status(400).json({
+        error:
+          "Invalid JSON format returned from model. Please check the model response.",
+      });
+    }
+
+    // Log the final definition for debugging
+    console.log("Term definition:", definition);
+
+    // Send the term definition back as JSON
+    res.json({ term, definition });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Something went wrong!" });
+  }
+});
+
+
 
 router.post("/get-suggested-taric-codes", async (req, res) => {
   try {
