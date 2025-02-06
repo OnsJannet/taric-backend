@@ -2269,7 +2269,6 @@ router.post("/get-taric-code-family-openai", async (req, res) => {
     2. Return only the JSON object—no additional text, explanations, or commentary.
     3. Include all possible 4-digit "heading" or "commodity codes" relevant to the term, covering various materials or contexts.
     4. Ensure the descriptions are accurate and aligned with the official TARIC classification terminology.
-    if ther term is similar to "chiave per fissaggio corpiwc in materia plastica e a larghezza fissa" ensure 8205 is included  as it relates to it
     If the term is exactly "Scolapasta in alluminio" or "scolapasta in alluminium", ensure 7615 is included in the list, as it relates to aluminum kitchenware. For any other term, do not include 7615 unless it is genuinely relevant.
     If the term is exactly "la chiusura dei pantaloni", ensure 6217 is included in the list, as it relates to fastening materials for clothing. For any other term, do not include 7615 unless it is genuinely relevant.
     `;
