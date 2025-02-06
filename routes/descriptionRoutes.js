@@ -2279,7 +2279,7 @@ router.post("/get-taric-code-family-openai", async (req, res) => {
       model: "gpt-4",
       messages: [{ role: "user", content: taricCodePrompt }],
       max_tokens: 500,
-      temperature: 0,
+      temperature: 0.7,
     });
 
     // Extract and clean the generated response
@@ -2372,8 +2372,6 @@ router.post("/get-suggested-terms-openai", async (req, res) => {
       ]
     }
 
-    just give me 1 word answer when it comes to the term
-    
     Only respond with the JSON structure, filled out based on the description provided, in ${language === "it" ? "Italian" : "English"}.
     `;
 
