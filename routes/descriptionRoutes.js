@@ -2335,6 +2335,89 @@ router.post("/get-taric-code-family-openai", async (req, res) => {
   }
 });
 
+router.post("/get-suggested-terms-openai", async (req, res) => {
+  try {
+    const { description, language } = req.body;
+
+    // Validate input
+    if (!description) {
+      return res.status(400).json({ error: "Description is required" });
+    }
+    if (!["it", "en"].includes(language)) {
+      return res.status(400).json({ error: "Unsupported language" });
+    }
+
+    console.log("language: " + language);
+
+    let textToProcess = description;
+
+    // Generate prompt based on language
+    const suggestionPrompt = `
+    Given the product description, provide suggested terms for classification, along with relevant details about each term in ${language === "it" ? "Italian" : "English"}.
+
+    - Translate terms, categories, materials, and uses to ${language === "it" ? "Italian" : "English"} where appropriate.
+    - Use only the description given without adding "term" or other text.
+
+    Description: "${textToProcess}"
+
+    Response format (in JSON):
+    {
+      "suggestedTerms": [
+        {
+          "term": "Suggested term in ${language === "it" ? "Italian" : "English"}",
+          "category": "Product category (e.g., Household item, Beverage, Electronics, etc.) in ${language === "it" ? "Italian" : "English"}",
+          "materials": "Main materials (e.g., metal, plastic, milk, coffee) in ${language === "it" ? "Italian" : "English"}",
+          "uses": "Main uses (e.g., consumption, cooking, industrial use) in ${language === "it" ? "Italian" : "English"}"
+        }
+      ]
+    }
+
+    just give me 1 word answer when it comes to the term
+    
+    Only respond with the JSON structure, filled out based on the description provided, in ${language === "it" ? "Italian" : "English"}.
+    `;
+
+    // Fetch suggestions from OpenAI (using GPT-4)
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4', // Using GPT-4
+      messages: [{ role: 'user', content: suggestionPrompt }],
+      max_tokens: 500,
+      temperature: 0,
+    });
+
+
+    let suggestionResponseText = completion.choices[0].message.content.trim();
+
+    // Log the raw response from the model for debugging
+    console.log("Raw suggestion response:", suggestionResponseText);
+
+    // Clean up formatting by removing any unnecessary text
+    suggestionResponseText = suggestionResponseText
+      .replace(/```json|```/g, "") // Remove markdown code block syntax
+      .trim(); // Trim leading/trailing whitespace
+
+    // Parse JSON response to extract suggested terms
+    let suggestedTerms;
+    try {
+      suggestedTerms = JSON.parse(suggestionResponseText).suggestedTerms;
+    } catch (error) {
+      console.error("Error parsing JSON:", error);
+      return res.status(400).json({
+        error:
+          "Invalid JSON format returned from model. Please check the model response.",
+      });
+    }
+
+    // Log the final suggested terms for debugging
+    console.log("Suggested terms:", suggestedTerms);
+
+    // Send the suggested terms back as JSON
+    res.json({ suggestedTerms });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Something went wrong!" });
+  }
+});
 
 
 
