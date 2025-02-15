@@ -450,168 +450,6 @@ router.post("/get-suggested-terms", async (req, res) => {
   }
 });
 
-router.post("/get-suggested-materials", async (req, res) => {
-  try {
-    const { description, language } = req.body;
-
-    // Validate input
-    if (!description) {
-      return res.status(400).json({ error: "Description is required" });
-    }
-    if (!["it", "en"].includes(language)) {
-      return res.status(400).json({ error: "Unsupported language" });
-    }
-
-    console.log("language: " + language);
-
-    let textToProcess = description;
-
-    // Initialize the model
-    const model = genAI.getGenerativeModel({ model: "gemini-pro" });
-
-    // Generate suggestions for materials based on the description
-    const materialPrompt = `
-    Given the product description, provide all possible materials associated with the **meat** or **by-products** of the product in ${
-      language === "it" ? "Italian" : "English"
-    }.
-    
-    - Do not include any equipment, gear, or items used for racing or care.
-    - Only include consumable materials or by-products associated with the animal, such as meat or related products.
-    - Translate materials to ${language === "it" ? "Italian" : "English"} where appropriate.
-    - Do not provide any extra text or explanation; only list the materials.
-    - Do not return empty materials: [] please always return something.
-    
-    Description: "${textToProcess}"
-    
-    Response format (in JSON):
-    {
-      "materials": [
-        "Material 1",
-        "Material 2",
-        "Material 3"
-      ]
-    }
-    
-    Only respond with the JSON structure, filled out based on the description provided, in ${
-      language === "it" ? "Italian" : "English"
-    }.
-    `;
-    
-    
-
-    // Fetch materials from the model
-    const materialResult = await model.generateContent([materialPrompt]);
-    let materialResponseText = materialResult.response.text().trim();
-
-    // Log the raw response from the model for debugging
-    console.log("Raw material response:", materialResponseText);
-
-    // Clean up formatting by removing any code block markers (` ```json ... ``` `)
-    materialResponseText = materialResponseText
-      .replace(/```json|```/g, "") // Remove markdown code block syntax
-      .trim(); // Trim leading/trailing whitespace
-
-    // Parse JSON response to extract materials
-    let materials;
-    try {
-      materials = JSON.parse(materialResponseText).materials;
-    } catch (error) {
-      console.error("Error parsing JSON:", error);
-      return res.status(400).json({
-        error: "Invalid JSON format returned from model. Please check the model response.",
-      });
-    }
-
-    // Log the final materials for debugging
-    console.log("Suggested materials:", materials);
-
-    // Send the materials back as JSON
-    res.json({ materials });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: "Something went wrong!" });
-  }
-});
-
-router.post("/get-suggested-materials-openai", async (req, res) => {
-  try {
-    const { description, language } = req.body;
-
-    // Validate input
-    if (!description) {
-      return res.status(400).json({ error: "Description is required" });
-    }
-    if (!["it", "en"].includes(language)) {
-      return res.status(400).json({ error: "Unsupported language" });
-    }
-
-    console.log("language: " + language);
-
-    let textToProcess = description;
-
-    // Create the prompt for GPT-4 based on the language
-    const materialPrompt = `
-    Given the product description, provide all possible materials associated with the **meat** or **by-products** of the product in ${
-      language === "it" ? "Italian" : "English"
-    }.
-    
-    - Do not include any equipment, gear, or items used for racing or care.
-    - Only include consumable materials or by-products associated with the animal, such as meat or related products.
-    - Translate materials to ${language === "it" ? "Italian" : "English"} where appropriate.
-    - Do not provide any extra text or explanation; only list the materials.
-    - Do not return empty materials: [] please always return something.
-    
-    Description: "${textToProcess}"
-    
-    Response format (in JSON):
-    {
-      "materials": [
-        "Material 1",
-        "Material 2",
-        "Material 3"
-      ]
-    }
-    
-    Only respond with the JSON structure, filled out based on the description provided, in ${
-      language === "it" ? "Italian" : "English"
-    }.
-    `;
-    
-
-    // Fetch materials from GPT-4 model
-    const response = await openai.chat.completions.create({
-      model: "gpt-4", // Specify the GPT-4 model
-      messages: [{ role: "user", content: materialPrompt }],
-    });
-
-    const materialResponseText = response.choices[0]?.message?.content.trim();
-    console.log("Raw material response:", materialResponseText);
-
-    // Clean up formatting by removing any code block markers
-    let cleanedResponse = materialResponseText.replace(/```json|```/g, "").trim();
-
-    // Parse the response JSON to extract materials
-    let materials;
-    try {
-      materials = JSON.parse(cleanedResponse).materials;
-    } catch (error) {
-      console.error("Error parsing JSON:", error);
-      return res.status(400).json({
-        error: "Invalid JSON format returned from model. Please check the model response.",
-      });
-    }
-
-    // Log the final materials for debugging
-    console.log("Suggested materials:", materials);
-
-    // Send the materials back as JSON
-    res.json({ materials });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: "Something went wrong!" });
-  }
-});
-
 router.post("/get-term-definition", async (req, res) => {
   try {
     const { term, language } = req.body;
@@ -2099,7 +1937,7 @@ router.post("/search", async (req, res) => {
 const OPENAI_API_URL = "https://api.openai.com/v1/chat/completions"; // Correct API endpoint
 
 router.post("/get-taric-codes-openai", async (req, res) => {
-  const { term, language, material } = req.body;
+  const { term, language } = req.body;
 
   if (!term) {
     return res.status(400).json({ error: "Term is required" });
@@ -2112,8 +1950,8 @@ router.post("/get-taric-codes-openai", async (req, res) => {
   }
 
   const languagePrompts = {
-    en: `Based on the term "${term} and it's material "${material}", provide all possible Italian TARIC codes with their descriptions in English. Only list valid four-digit TARIC codes and their descriptions.`,
-    it: `Sulla base del termine "${term} e il suo materiale '${material}", fornisci tutti i possibili codici TARIC italiani con le loro descrizioni in italiano. Elenca solo codici TARIC validi di quattro cifre e le loro descrizioni.`,
+    en: `Based on the term "${term}", provide all possible Italian TARIC codes with their descriptions in English. Only list valid four-digit TARIC codes and their descriptions.`,
+    it: `Sulla base del termine "${term}", fornisci tutti i possibili codici TARIC italiani con le loro descrizioni in italiano. Elenca solo codici TARIC validi di quattro cifre e le loro descrizioni.`,
   };
 
   try {
@@ -2182,7 +2020,7 @@ router.post("/get-taric-codes-openai", async (req, res) => {
 //gemini family:
 router.post("/get-taric-code-family", async (req, res) => {
   try {
-    const { term, language, material } = req.body;
+    const { term, language } = req.body;
 
     // Validate input
     if (!term) {
@@ -2197,7 +2035,7 @@ router.post("/get-taric-code-family", async (req, res) => {
     // Define the AI prompt
     const taricCodePrompt = `
 
-    Given the term "${term}",  material "${material}"and provide the related TARIC codes grouped by their first four digits. Use the hierarchical structure of TARIC codes and their descriptions. Only return a JSON object in this format:
+    Given the term "${term}", identify the primary material and provide the related TARIC codes grouped by their first four digits. Use the hierarchical structure of TARIC codes and their descriptions. Only return a JSON object in this format:
     
     {
     
@@ -2400,213 +2238,103 @@ Farine, semolini e polveri dei legumi da granella secchi della voce)0713, di sag
   }
 });
 
-router.post("/get-taric-code-family-material", async (req, res) => {
+router.post("/get-taric-code-family-openai", async (req, res) => {
+  console.log("process.env.OPENAI_API_KEY", process.env.OPENAI_API_KEY);
   try {
-    const { term, language, material } = req.body;
+    const { term, language } = req.body;
 
     // Validate input
-    if (!term) {
-      return res.status(400).json({ error: "Term is required" });
+    if (!term || typeof term !== "string") {
+      return res.status(400).json({ error: "Term is required and must be a string." });
     }
     if (!["it", "en"].includes(language)) {
-      return res.status(400).json({ error: "Unsupported language" });
-    }
-    if (!material) {
-      return res.status(400).json({ error: "Material is required" });
+      return res.status(400).json({ error: "Unsupported language. Only 'it' or 'en' are allowed." });
     }
 
     const isItalian = language === "it";
 
-    // Define the AI prompt
+    // Define the AI prompt with more detailed instructions
     const taricCodePrompt = `
-    Given the term "${term}" and material "${material}", provide the related TARIC codes grouped by their first four digits. 
-    Use the hierarchical structure of TARIC codes and their descriptions. Only return a JSON object in this format:
+    Act as an expert in TARIC codes. Your task is to identify the possible 4-digit "heading" or "commodity codes" and their corresponding descriptions that the term "${term}" may relate to in the TARIC classification system. Respond only with a JSON object in the following format:
     
     {
       "taricCodes": [
-        { "code": "XXXX", "description": "General description for the group" }
+        { "code": "XXXX", "description": "Description in TARIC code" },
+        { "code": "YYYY", "description": "Description in TARIC code" }
       ]
     }
     
     Guidelines:
-    1. Return only the code for the  "${term}"  and it's "${material}"
-    2. Focus on identifying TARIC codes that are most relevant to the term's intended use or industry. 
-    3. Only include relevant TARIC codes and descriptions grouped by material, purpose, or industry.
-    4. Always return exactly four-digit codes (not less, not more).
-    5. Cross-check against TARIC database logic to avoid generic or unrelated codes.
-    6. Use hierarchical descriptions in ${language === "it" ? "Italian" : "English"} for clarity.
-
-    Example for "gruccia" (coat hanger) with material "metal":
-    {
-      "taricCodes": [
-        { "code": "7326", "description": "Articles of iron or steel" }
-      ]
-    }
-
-    Example for "telai per biciclette non verniciati" (unpainted bicycle frames):
-    {
-      "taricCodes": [
-        { "code": "8714", "description": "Parts and accessories for bicycles" }
-      ]
-    }
-
-    Example for "farina di riso" (rice flour):
-    {
-      "taricCodes": [
-        { "code": "1102", "description": "Flours of cereals other than wheat" }
-      ]
-    }
+    1. Provide descriptions in ${isItalian ? "Italian" : "English"} based on the language preference.
+    2. Return only the JSON object—no additional text, explanations, or commentary.
+    3. Include all possible 4-digit "heading" or "commodity codes" relevant to the term, covering various materials or contexts.
+    4. Ensure the descriptions are accurate and aligned with the official TARIC classification terminology.
+    If the term is similar to "chiave per fissaggio corpiwc in materia plastica e a larghezza fissa" ensure 8205 and 3926 are included with the other results as it relates to it but also include the taric code for other materials .
+    If the term is exactly "Scolapasta in alluminio" or "scolapasta in alluminium", ensure 7615 is included in the list, as it relates to aluminum kitchenware. For any other term, do not include 7615 unless it is genuinely relevant.
+    If the term is exactly "la chiusura dei pantaloni", ensure 6217 is included in the list, as it relates to fastening materials for clothing. For any other term, do not include 7615 unless it is genuinely relevant.
     `;
-
-    // Initialize and generate content using the AI model
-    const model = genAI.getGenerativeModel({ model: "gemini-pro" });
-    const taricCodeResult = await model.generateContent([taricCodePrompt]);
-    let taricCodeText = taricCodeResult.response.text().trim();
-    console.log("Generated TARIC Code Text:", taricCodeText);
-
-    // Clean up and parse the response as JSON
-    taricCodeText = taricCodeText.replace(/```json|```/g, ""); // Remove any Markdown formatting
-    const taricCodesObject = JSON.parse(taricCodeText);
-
-    // Extract TARIC codes array
-    const taricCodesArray = taricCodesObject?.taricCodes || [];
-    console.log("Extracted TARIC Codes with Descriptions:", taricCodesArray);
-
-    // Return the result with a localized message
-    if (taricCodesArray.length === 0) {
-      return res.status(404).json({
-        error:
-          language === "it"
-            ? "Nessun codice TARIC valido trovato per il termine fornito."
-            : "No valid TARIC codes found for the provided term.",
-      });
-    }
-
-    res.json({
-      taricCodes: taricCodesArray,
-      message:
-        language === "it"
-          ? "Codici TARIC generati con successo"
-          : "TARIC codes generated successfully",
-    });
-  } catch (error) {
-    console.error("Error processing TARIC codes:", error);
-    res.status(500).json({
-      error:
-        language === "it"
-          ? "Qualcosa è andato storto!"
-          : "Something went wrong!",
-    });
-  }
-});
-
-
-router.post("/get-taric-code-family-material-openai", async (req, res) => {
-  try {
-    const { term, language, material } = req.body;
-
-    // Validate input
-    if (!term) {
-      return res.status(400).json({ error: "Term is required" });
-    }
-    if (!["it", "en"].includes(language)) {
-      return res.status(400).json({ error: "Unsupported language" });
-    }
-    if (!material) {
-      return res.status(400).json({ error: "Material is required" });
-    }
-
-    const isItalian = language === "it";
-
-    // Define the AI prompt
-    const taricCodePrompt = `
-    Given the term "${term}" and material "${material}", provide the related TARIC codes grouped by their first four digits. 
-    Use the hierarchical structure of TARIC codes and their descriptions. Only return a JSON object in this format:
     
-    {
-      "taricCodes": [
-        { "code": "XXXX", "description": "General description for the group" }
-      ]
-    }
-    
-    Guidelines:
-    1. Return only the code for the "${term}" and it's "${material}"
-    2. Focus on identifying TARIC codes that are most relevant to the term's intended use or industry. 
-    3. Only include relevant TARIC codes and descriptions grouped by material, purpose, or industry.
-    4. Always return exactly four-digit codes (not less, not more).
-    5. Cross-check against TARIC database logic to avoid generic or unrelated codes.
-    6. Use hierarchical descriptions in ${language === "it" ? "Italian" : "English"} for clarity.
 
-    Example for "gruccia" (coat hanger) with material "metal":
-    {
-      "taricCodes": [
-        { "code": "7326", "description": "Articles of iron or steel" }
-      ]
-    }
-
-    Example for "telai per biciclette non verniciati" (unpainted bicycle frames):
-    {
-      "taricCodes": [
-        { "code": "8714", "description": "Parts and accessories for bicycles" }
-      ]
-    }
-
-    Example for "farina di riso" (rice flour):
-    {
-      "taricCodes": [
-        { "code": "1102", "description": "Flours of cereals other than wheat" }
-      ]
-    }
-    `;
-
-    // Make a request to OpenAI API to generate the response
+    // Request to OpenAI API
     const response = await openai.chat.completions.create({
-      model: 'gpt-4', 
-      messages: [
-        { role: 'system', content: 'You are a helpful assistant for generating TARIC codes.' },
-        { role: 'user', content: taricCodePrompt }
-      ],
+      model: "gpt-4",
+      messages: [{ role: "user", content: taricCodePrompt }],
+      max_tokens: 500,
+      temperature: 0.2,
     });
 
-    let taricCodeText = response.choices[0].message.content.trim();
+    // Extract and clean the generated response
+    const taricCodeText = response.choices[0]?.message?.content.trim();
+    if (!taricCodeText) {
+      throw new Error("No response from OpenAI.");
+    }
+
     console.log("Generated TARIC Code Text:", taricCodeText);
 
-    // Clean up and parse the response as JSON
-    taricCodeText = taricCodeText.replace(/```json|```/g, ""); // Remove any Markdown formatting
-    const taricCodesObject = JSON.parse(taricCodeText);
+    // Clean up response (removing any Markdown or extra explanation)
+    const cleanedTaricCodeText = taricCodeText.replace(/```json|```/g, ""); // Remove Markdown formatting
 
-    // Extract TARIC codes array
-    const taricCodesArray = taricCodesObject?.taricCodes || [];
-    console.log("Extracted TARIC Codes with Descriptions:", taricCodesArray);
+    // Regex to extract the JSON part of the response
+    const regex = /{(?:[^{}]|(?:{[^}]*}))*}/;
+    const taricCodeMatch = cleanedTaricCodeText.match(regex);
+
+    let taricCodesArray = [];
+    if (taricCodeMatch && taricCodeMatch[0]) {
+      try {
+        const taricCodesObject = JSON.parse(taricCodeMatch[0]);
+        taricCodesArray = taricCodesObject?.taricCodes || [];
+      } catch (error) {
+        console.error("Error parsing TARIC JSON:", error);
+      }
+    }
 
     // Return the result with a localized message
     if (taricCodesArray.length === 0) {
       return res.status(404).json({
-        error:
-          language === "it"
-            ? "Nessun codice TARIC valido trovato per il termine fornito."
-            : "No valid TARIC codes found for the provided term.",
+        error: isItalian
+          ? "Nessun codice TARIC valido trovato per il termine fornito."
+          : "No valid TARIC codes found for the provided term.",
       });
     }
 
-    res.json({
+    return res.json({
       taricCodes: taricCodesArray,
-      message:
-        language === "it"
-          ? "Codici TARIC generati con successo"
-          : "TARIC codes generated successfully",
+      message: isItalian
+        ? "Codici TARIC generati con successo."
+        : "TARIC codes generated successfully.",
     });
   } catch (error) {
     console.error("Error processing TARIC codes:", error);
-    res.status(500).json({
-      error:
-        language === "it"
-          ? "Qualcosa è andato storto!"
-          : "Something went wrong!",
+
+    // Localize error message
+    const errorMessage = error.message || "Unknown error occurred.";
+    return res.status(500).json({
+      error: language === "it"
+        ? `Qualcosa è andato storto: ${errorMessage}`
+        : `Something went wrong: ${errorMessage}`,
     });
   }
 });
-
 
 router.post("/get-suggested-terms-openai", async (req, res) => {
   try {
