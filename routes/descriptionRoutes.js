@@ -2520,8 +2520,9 @@ router.post("/get-taric-code-family-material-openai", async (req, res) => {
 
     // Define the AI prompt
     const taricCodePrompt = `
-    Given the term "${term}" and material "${material}", provide the related TARIC codes grouped by their first four digits. 
-    Use the hierarchical structure of TARIC codes and their descriptions. Only return a JSON object in this format:
+    Given the term "${term}" and material "${material}", provide the most relevant TARIC codes associated with this term and material. Return the result as a JSON object containing only the required TARIC codes grouped by their first four digits.
+    
+    The response must strictly adhere to the following structure:
     
     {
       "taricCodes": [
@@ -2530,27 +2531,29 @@ router.post("/get-taric-code-family-material-openai", async (req, res) => {
     }
     
     Guidelines:
-    1. Return only the code for the "${term}" and it's "${material}"
-    2. Focus on identifying TARIC codes that are most relevant to the term's intended use or industry. 
-    3. Only include relevant TARIC codes and descriptions grouped by material, purpose, or industry.
-    4. Always return exactly four-digit codes (not less, not more).
-    5. Cross-check against TARIC database logic to avoid generic or unrelated codes.
-    6. Use hierarchical descriptions in ${language === "it" ? "Italian" : "English"} for clarity.
-
+    1. Only return the TARIC codes for "${term}" and its material "${material}".
+    2. Focus on identifying TARIC codes that are specifically relevant to the term's intended use or industry.
+    3. Only include relevant codes grouped by material, purpose, or industry.
+    4. Always provide four-digit codes (no more, no less).
+    5. Ensure descriptions reflect the hierarchical structure of TARIC codes.
+    6. Use the language specified (${language === "it" ? "Italian" : "English"}) for clarity in the descriptions.
+    7. Ensure there is no extraneous text before or after the JSON response—only return the JSON object.
+    8. Do not include any disclaimers or statements regarding the AI's limitations or access to databases. Simply provide the relevant TARIC codes as per the instructions.
+    
     Example for "gruccia" (coat hanger) with material "metal":
     {
       "taricCodes": [
         { "code": "7326", "description": "Articles of iron or steel" }
       ]
     }
-
+    
     Example for "telai per biciclette non verniciati" (unpainted bicycle frames):
     {
       "taricCodes": [
         { "code": "8714", "description": "Parts and accessories for bicycles" }
       ]
     }
-
+    
     Example for "farina di riso" (rice flour):
     {
       "taricCodes": [
@@ -2558,6 +2561,7 @@ router.post("/get-taric-code-family-material-openai", async (req, res) => {
       ]
     }
     `;
+    
 
     // Make a request to OpenAI API to generate the response
     const response = await openai.chat.completions.create({
@@ -2599,10 +2603,7 @@ router.post("/get-taric-code-family-material-openai", async (req, res) => {
   } catch (error) {
     console.error("Error processing TARIC codes:", error);
     res.status(500).json({
-      error:
-        language === "it"
-          ? "Qualcosa è andato storto!"
-          : "Something went wrong!",
+      error: "Something went wrong!",
     });
   }
 });
