@@ -612,8 +612,6 @@ router.post("/get-suggested-materials-openai", async (req, res) => {
   }
 });
 
-
-
 router.post("/get-term-definition", async (req, res) => {
   try {
     const { term, language } = req.body;
