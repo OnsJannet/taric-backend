@@ -2241,7 +2241,7 @@ Farine, semolini e polveri dei legumi da granella secchi della voce)0713, di sag
 router.post("/get-taric-code-family-openai", async (req, res) => {
   console.log("process.env.OPENAI_API_KEY", process.env.OPENAI_API_KEY);
   try {
-    const { term, language } = req.body;
+    const { term, language, taric } = req.body;
 
     // Validate input
     if (!term || typeof term !== "string") {
@@ -2355,26 +2355,35 @@ router.post("/get-suggested-terms-openai", async (req, res) => {
     // Generate prompt based on language
     const suggestionPrompt = `
     Given the product description, provide suggested terms for classification, along with relevant details about each term in ${language === "it" ? "Italian" : "English"}.
-
+    
     - Translate terms, categories, materials, and uses to ${language === "it" ? "Italian" : "English"} where appropriate.
-    - Use only the description given without adding "term" or other text.
-
+    - If the same term can exist with different materials, list each **as a separate entry**.
+    - Ensure each material is **matched with the correct TARIC chapter** and its definition.
+    
     Description: "${textToProcess}"
-
+    
     Response format (in JSON):
     {
+      "Description": "Give a summary of all suggestedTerms and give a description for the "${textToProcess}""
       "suggestedTerms": [
         {
           "term": "Suggested term in ${language === "it" ? "Italian" : "English"}",
-          "category": "Product category (e.g., Household item, Beverage, Electronics, etc.) in ${language === "it" ? "Italian" : "English"}",
-          "materials": "Main materials (e.g., metal, plastic, milk, coffee) in ${language === "it" ? "Italian" : "English"}",
-          "uses": "Main uses (e.g., consumption, cooking, industrial use) in ${language === "it" ? "Italian" : "English"}"
+          "category": "Product category (e.g., Household item, Beverage, Electronics, etc.)",
+          "materials": "Main materials (e.g., metal, plastic, wood) if it's an animal or an alive thing show no materials in ${language === "it" ? "Italian" : "English"}",
+          "uses": "Main uses (e.g., domestic, industrial, construction) in ${language === "it" ? "Italian" : "English"}",
+          "taricChapter": {
+            "number": "The TARIC Chapter number (e.g., 73 for metal products, 39 for plastic items)",
+            "description": "Brief definition of the TARIC chapter in ${language === "it" ? "Italian" : "English"}"
+          }
         }
       ]
     }
-
+    
+    If the product could exist in multiple materials, return **each as a separate entry**.
+    
     Only respond with the JSON structure, filled out based on the description provided, in ${language === "it" ? "Italian" : "English"}.
     `;
+    
 
     // Fetch suggestions from OpenAI (using GPT-4)
     const completion = await openai.chat.completions.create({
@@ -2383,7 +2392,6 @@ router.post("/get-suggested-terms-openai", async (req, res) => {
       max_tokens: 500,
       temperature: 0,
     });
-
 
     let suggestionResponseText = completion.choices[0].message.content.trim();
 
@@ -2417,6 +2425,8 @@ router.post("/get-suggested-terms-openai", async (req, res) => {
     res.status(500).json({ error: "Something went wrong!" });
   }
 });
+
+
 
 
 
