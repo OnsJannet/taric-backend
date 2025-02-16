@@ -2369,6 +2369,7 @@ router.post("/get-suggested-terms-openai", async (req, res) => {
           "category": "Product category (e.g., Household item, Beverage, Electronics, etc.) in ${language === "it" ? "Italian" : "English"}",
           "materials": "Main materials (e.g., metal, plastic, milk, coffee) in ${language === "it" ? "Italian" : "English"}",
           "uses": "Main uses (e.g., consumption, cooking, industrial use) in ${language === "it" ? "Italian" : "English"}"
+
         }
       ]
     }
