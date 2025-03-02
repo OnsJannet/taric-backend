@@ -64,6 +64,8 @@ const loadDataMiddleware = async (req, res, next) => {
 // Initialize Google Generative AI instance
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY);
 
+
+
 // Helper function to get data by language
 const getDataByLanguage = (language) =>
   language === "it" ? additionalData.it : additionalData.en;
@@ -72,7 +74,7 @@ const getDataByLanguage = (language) =>
 const getTaricCode = async (term) => {
   try {
     //const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-    const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro"}, {apiVersion: 'v1beta',});
     const response = await model.generateText({
       prompt: `Find the 4-digit TARIC code for the product: ${term}`,
     });
@@ -167,7 +169,7 @@ router.post("/get-word", async (req, res) => {
 
     // Initialize the model
     //const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" }); // Specify the model
-    const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" }, {apiVersion: 'v1beta',});
 
     // Generate content based on the description
     //const prompt = `Basato sulla seguente descrizione ${language === 'it' ? 'in italiano' : 'in inglese'}, fornisci le seguenti informazioni in modo dettagliato:\n\n1. Una sola parola che descrive meglio l'oggetto (es. "appendiabiti" o "hanger").\n2. Un elenco di codici di famiglia TARIC (6 cifre) associati ai materiali descritti (legno, plastica, metallo), separati da virgole. Se nella descrizione ci sono materiali specifici, aggiungi i loro codici TARIC. I codici devono essere privi di punti (.) e consistenti di 6 cifre.\n3. Un elenco di suggerimenti abbinati (12 cifre) corrispondenti a quei codici di famiglia, separati da virgole. Anche i suggerimenti devono essere privi di punti (.) e consistenti di 12 cifre.\n\nDescrizione: "${textToProcess}".\n\nFormatta la risposta come segue:\n\nword: [la parola]\nFamily: [elenco di codici di famiglia a 4 cifre, senza punti]\nMatched Suggestion: [elenco di suggerimenti abbinati a 12 cifre, senza punti]. Assicurati di fornire tutte le informazioni richieste e di includere i codici dei materiali se presenti.`;
@@ -230,7 +232,7 @@ router.post("/get-taric-codes", async (req, res) => {
 
     // Initialize the model
     //const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-    const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" }, {apiVersion: 'v1beta',});
 
     // Updated prompt to include the necessary instruction for code and description display
     const prompt = `
@@ -373,7 +375,7 @@ router.post("/get-suggested-terms", async (req, res) => {
 
     // Initialize the model
     //const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-    const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" }, {apiVersion: 'v1beta',});
 
     // Generate suggestions for terms with materials, uses, and category
     const suggestionPrompt = `
@@ -465,7 +467,7 @@ router.post("/get-term-definition", async (req, res) => {
     console.log("language: " + language);
 
     // Initialize the model
-    const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" }, {apiVersion: 'v1beta',});
 
     // Prompt for generating the term definition
     const definitionPrompt = `
@@ -535,17 +537,14 @@ router.post("/get-taric-summary", async (req, res) => {
     console.log("language: " + language);
 
     // Initialize the model
-    const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" }, {apiVersion: 'v1beta',});
 
     // Prompt for generating the TARIC code summary
     const definitionPrompt = `
     Provide a detailed overview of the TARIC code for the given product. Include the following elements:  
     0. Please alwawys mention the product
     1. A general explanation that the TARIC code for the product depends on its composition, characteristics, and materials used.  
-    2. Mention that the product can be classified into different categories based on key factors such as its composition, ingredients, or usage.  
-    3. State that the applicable customs duties and trade regulations may vary depending on the specific classification of the product.  
-    4. Include a note that trade agreements or preferential tariffs may influence the customs duties on the product's imports.  
-    5. Conclude by advising to consult Our Application (Easy Taric) to get the right taric code.
+
 
     Term: "${term}"
 
@@ -614,7 +613,7 @@ router.post("/get-suggested-taric-codes", async (req, res) => {
 
     // Initialize the model
     //const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-    const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" }, {apiVersion: 'v1beta',});
 
     // Generate TARIC code suggestions based on the specified language
     const languagePrompts = {
@@ -715,7 +714,7 @@ router.post("/get-taric-code-questions", async (req, res) => {
 
     // Initialize the model
     //const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-    const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" }, {apiVersion: 'v1beta',});
 
     // Define the prompt for generating detailed TARIC-specific questions
     const questionPrompt = `
@@ -829,7 +828,7 @@ router.post("/get-dynamic-taric-code-questions", async (req, res) => {
 
     // Initialize the model
     //const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-    const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" }, {apiVersion: 'v1beta',});
 
     // Adjusted Prompt
     const prompt = `
@@ -968,7 +967,7 @@ router.post("/get-dynamic-taric-code-questions-gemini", async (req, res) => {
 
     // Initialize the model
     //const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-    const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" }, {apiVersion: 'v1beta',});
 
     // Adjusted Prompt
     const prompt = `
@@ -1096,7 +1095,7 @@ router.post("/get-dynamic-taric-code-questions-hybrid", async (req, res) => {
     }
 
     //const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-    const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" }, {apiVersion: 'v1beta',});
 
     const prompt = `
       Based on the term "${term}", find and return only the relevant four-digit TARIC code that best represents this term.
@@ -1206,7 +1205,7 @@ router.post("/get-dynamic-taric-code-questions-json", async (req, res) => {
     }
 
     //const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-    const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" }, {apiVersion: 'v1beta',});
 
     const generateQuestion = async (data) => {
       const options = data.map((item, index) => ({
@@ -1496,7 +1495,7 @@ router.post("/get-taric-code-by-structure", async (req, res) => {
 
   try {
     //const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-    const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" }, {apiVersion: 'v1beta',});
 
     const taricCodePrompt = `
     Based on the specified chapter, heading, and detailed subheadings, as well as answers to product-specific questions, identify the most accurate TARIC code and description. Follow these steps for an accurate TARIC classification:
@@ -1574,7 +1573,7 @@ router.post("/generate-taric-code-with-questions", async (req, res) => {
     console.log("Input JSON received:", inputJson);
 
     // Initialize the model (same as the previous working endpoint)
-    const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" }, {apiVersion: 'v1beta',});
 
     // Build the prompt to generate TARIC codes and questions
     const taricCodeWithQuestionsPrompt = `
@@ -1686,7 +1685,7 @@ router.post("/get-taric-code-answers", async (req, res) => {
     console.log("Term:", term);
 
     //const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-    const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" }, {apiVersion: 'v1beta',});
 
     const taricCodePrompt = `
     Based on the specified term and the detailed answers provided, identify the most accurate TARIC codes and descriptions by following a logical progression through HS, CN, and TARIC codes. Ensure accuracy and specificity by leveraging a comprehensive and updated TARIC code database. The model should:
@@ -2197,7 +2196,7 @@ Farine, semolini e polveri dei legumi da granella secchi della voce)0713, di sag
     }`;
 
     // Initialize and generate content using the AI model
-    const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" }, {apiVersion: 'v1beta',});
     const taricCodeResult = await model.generateContent([taricCodePrompt]);
     let taricCodeText = taricCodeResult.response.text().trim();
     console.log("Generated TARIC Code Text:", taricCodeText);
