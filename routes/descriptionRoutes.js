@@ -2358,6 +2358,7 @@ router.post("/get-suggested-terms-openai", async (req, res) => {
     - Translate terms, categories, materials, and uses to ${language === "it" ? "Italian" : "English"} where appropriate.
     - If the same term can exist with different materials, list each **as a separate entry**.
     - Ensure each material is **matched with the correct TARIC chapter** and its definition.
+    - Make sure to give classifications for uses
     
     Description: "${textToProcess}"
     
