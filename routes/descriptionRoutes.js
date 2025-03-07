@@ -16,8 +16,6 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-
-
 // Load TARIC data from the given URL
 const loadGoodsData = async () => {
   try {
@@ -64,8 +62,6 @@ const loadDataMiddleware = async (req, res, next) => {
 // Initialize Google Generative AI instance
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY);
 
-
-
 // Helper function to get data by language
 const getDataByLanguage = (language) =>
   language === "it" ? additionalData.it : additionalData.en;
@@ -74,7 +70,10 @@ const getDataByLanguage = (language) =>
 const getTaricCode = async (term) => {
   try {
     //const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro"}, {apiVersion: 'v1beta',});
+    const model = genAI.getGenerativeModel(
+      { model: "gemini-1.5-pro" },
+      { apiVersion: "v1beta" }
+    );
     const response = await model.generateText({
       prompt: `Find the 4-digit TARIC code for the product: ${term}`,
     });
@@ -169,7 +168,10 @@ router.post("/get-word", async (req, res) => {
 
     // Initialize the model
     //const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" }); // Specify the model
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" }, {apiVersion: 'v1beta',});
+    const model = genAI.getGenerativeModel(
+      { model: "gemini-1.5-pro" },
+      { apiVersion: "v1beta" }
+    );
 
     // Generate content based on the description
     //const prompt = `Basato sulla seguente descrizione ${language === 'it' ? 'in italiano' : 'in inglese'}, fornisci le seguenti informazioni in modo dettagliato:\n\n1. Una sola parola che descrive meglio l'oggetto (es. "appendiabiti" o "hanger").\n2. Un elenco di codici di famiglia TARIC (6 cifre) associati ai materiali descritti (legno, plastica, metallo), separati da virgole. Se nella descrizione ci sono materiali specifici, aggiungi i loro codici TARIC. I codici devono essere privi di punti (.) e consistenti di 6 cifre.\n3. Un elenco di suggerimenti abbinati (12 cifre) corrispondenti a quei codici di famiglia, separati da virgole. Anche i suggerimenti devono essere privi di punti (.) e consistenti di 12 cifre.\n\nDescrizione: "${textToProcess}".\n\nFormatta la risposta come segue:\n\nword: [la parola]\nFamily: [elenco di codici di famiglia a 4 cifre, senza punti]\nMatched Suggestion: [elenco di suggerimenti abbinati a 12 cifre, senza punti]. Assicurati di fornire tutte le informazioni richieste e di includere i codici dei materiali se presenti.`;
@@ -232,7 +234,10 @@ router.post("/get-taric-codes", async (req, res) => {
 
     // Initialize the model
     //const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" }, {apiVersion: 'v1beta',});
+    const model = genAI.getGenerativeModel(
+      { model: "gemini-1.5-pro" },
+      { apiVersion: "v1beta" }
+    );
 
     // Updated prompt to include the necessary instruction for code and description display
     const prompt = `
@@ -375,7 +380,10 @@ router.post("/get-suggested-terms", async (req, res) => {
 
     // Initialize the model
     //const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" }, {apiVersion: 'v1beta',});
+    const model = genAI.getGenerativeModel(
+      { model: "gemini-1.5-pro" },
+      { apiVersion: "v1beta" }
+    );
 
     // Generate suggestions for terms with materials, uses, and category
     const suggestionPrompt = `
@@ -467,7 +475,10 @@ router.post("/get-term-definition", async (req, res) => {
     console.log("language: " + language);
 
     // Initialize the model
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" }, {apiVersion: 'v1beta',});
+    const model = genAI.getGenerativeModel(
+      { model: "gemini-1.5-pro" },
+      { apiVersion: "v1beta" }
+    );
 
     // Prompt for generating the term definition
     const definitionPrompt = `
@@ -537,7 +548,10 @@ router.post("/get-taric-summary", async (req, res) => {
     console.log("language: " + language);
 
     // Initialize the model
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" }, {apiVersion: 'v1beta',});
+    const model = genAI.getGenerativeModel(
+      { model: "gemini-1.5-pro" },
+      { apiVersion: "v1beta" }
+    );
 
     // Prompt for generating the TARIC code summary
     const definitionPrompt = `
@@ -593,8 +607,6 @@ router.post("/get-taric-summary", async (req, res) => {
   }
 });
 
-
-
 router.post("/get-suggested-taric-codes", async (req, res) => {
   try {
     const { description, language } = req.body;
@@ -613,7 +625,10 @@ router.post("/get-suggested-taric-codes", async (req, res) => {
 
     // Initialize the model
     //const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" }, {apiVersion: 'v1beta',});
+    const model = genAI.getGenerativeModel(
+      { model: "gemini-1.5-pro" },
+      { apiVersion: "v1beta" }
+    );
 
     // Generate TARIC code suggestions based on the specified language
     const languagePrompts = {
@@ -714,7 +729,10 @@ router.post("/get-taric-code-questions", async (req, res) => {
 
     // Initialize the model
     //const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" }, {apiVersion: 'v1beta',});
+    const model = genAI.getGenerativeModel(
+      { model: "gemini-1.5-pro" },
+      { apiVersion: "v1beta" }
+    );
 
     // Define the prompt for generating detailed TARIC-specific questions
     const questionPrompt = `
@@ -828,7 +846,10 @@ router.post("/get-dynamic-taric-code-questions", async (req, res) => {
 
     // Initialize the model
     //const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" }, {apiVersion: 'v1beta',});
+    const model = genAI.getGenerativeModel(
+      { model: "gemini-1.5-pro" },
+      { apiVersion: "v1beta" }
+    );
 
     // Adjusted Prompt
     const prompt = `
@@ -967,7 +988,10 @@ router.post("/get-dynamic-taric-code-questions-gemini", async (req, res) => {
 
     // Initialize the model
     //const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" }, {apiVersion: 'v1beta',});
+    const model = genAI.getGenerativeModel(
+      { model: "gemini-1.5-pro" },
+      { apiVersion: "v1beta" }
+    );
 
     // Adjusted Prompt
     const prompt = `
@@ -1095,7 +1119,10 @@ router.post("/get-dynamic-taric-code-questions-hybrid", async (req, res) => {
     }
 
     //const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" }, {apiVersion: 'v1beta',});
+    const model = genAI.getGenerativeModel(
+      { model: "gemini-1.5-pro" },
+      { apiVersion: "v1beta" }
+    );
 
     const prompt = `
       Based on the term "${term}", find and return only the relevant four-digit TARIC code that best represents this term.
@@ -1205,7 +1232,10 @@ router.post("/get-dynamic-taric-code-questions-json", async (req, res) => {
     }
 
     //const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" }, {apiVersion: 'v1beta',});
+    const model = genAI.getGenerativeModel(
+      { model: "gemini-1.5-pro" },
+      { apiVersion: "v1beta" }
+    );
 
     const generateQuestion = async (data) => {
       const options = data.map((item, index) => ({
@@ -1495,7 +1525,10 @@ router.post("/get-taric-code-by-structure", async (req, res) => {
 
   try {
     //const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" }, {apiVersion: 'v1beta',});
+    const model = genAI.getGenerativeModel(
+      { model: "gemini-1.5-pro" },
+      { apiVersion: "v1beta" }
+    );
 
     const taricCodePrompt = `
     Based on the specified chapter, heading, and detailed subheadings, as well as answers to product-specific questions, identify the most accurate TARIC code and description. Follow these steps for an accurate TARIC classification:
@@ -1573,7 +1606,10 @@ router.post("/generate-taric-code-with-questions", async (req, res) => {
     console.log("Input JSON received:", inputJson);
 
     // Initialize the model (same as the previous working endpoint)
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" }, {apiVersion: 'v1beta',});
+    const model = genAI.getGenerativeModel(
+      { model: "gemini-1.5-pro" },
+      { apiVersion: "v1beta" }
+    );
 
     // Build the prompt to generate TARIC codes and questions
     const taricCodeWithQuestionsPrompt = `
@@ -1685,7 +1721,10 @@ router.post("/get-taric-code-answers", async (req, res) => {
     console.log("Term:", term);
 
     //const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" }, {apiVersion: 'v1beta',});
+    const model = genAI.getGenerativeModel(
+      { model: "gemini-1.5-pro" },
+      { apiVersion: "v1beta" }
+    );
 
     const taricCodePrompt = `
     Based on the specified term and the detailed answers provided, identify the most accurate TARIC codes and descriptions by following a logical progression through HS, CN, and TARIC codes. Ensure accuracy and specificity by leveraging a comprehensive and updated TARIC code database. The model should:
@@ -2196,7 +2235,10 @@ Farine, semolini e polveri dei legumi da granella secchi della voce)0713, di sag
     }`;
 
     // Initialize and generate content using the AI model
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" }, {apiVersion: 'v1beta',});
+    const model = genAI.getGenerativeModel(
+      { model: "gemini-1.5-pro" },
+      { apiVersion: "v1beta" }
+    );
     const taricCodeResult = await model.generateContent([taricCodePrompt]);
     let taricCodeText = taricCodeResult.response.text().trim();
     console.log("Generated TARIC Code Text:", taricCodeText);
@@ -2244,10 +2286,16 @@ router.post("/get-taric-code-family-openai", async (req, res) => {
 
     // Validate input
     if (!term || typeof term !== "string") {
-      return res.status(400).json({ error: "Term is required and must be a string." });
+      return res
+        .status(400)
+        .json({ error: "Term is required and must be a string." });
     }
     if (!["it", "en"].includes(language)) {
-      return res.status(400).json({ error: "Unsupported language. Only 'it' or 'en' are allowed." });
+      return res
+        .status(400)
+        .json({
+          error: "Unsupported language. Only 'it' or 'en' are allowed.",
+        });
     }
 
     const isItalian = language === "it";
@@ -2264,7 +2312,9 @@ router.post("/get-taric-code-family-openai", async (req, res) => {
     }
     
     Guidelines:
-    1. Provide descriptions in ${isItalian ? "Italian" : "English"} based on the language preference.
+    1. Provide descriptions in ${
+      isItalian ? "Italian" : "English"
+    } based on the language preference.
     2. Return only the JSON object—no additional text, explanations, or commentary.
     3. Include all possible 4-digit "heading" or "commodity codes" relevant to the term, covering various materials or contexts.
     4. Ensure the descriptions are accurate and aligned with the official TARIC classification terminology.
@@ -2272,7 +2322,6 @@ router.post("/get-taric-code-family-openai", async (req, res) => {
     If the term is exactly "Scolapasta in alluminio" or "scolapasta in alluminium", ensure 7615 is included in the list, as it relates to aluminum kitchenware. For any other term, do not include 7615 unless it is genuinely relevant.
     If the term is exactly "la chiusura dei pantaloni", ensure 6217 is included in the list, as it relates to fastening materials for clothing. For any other term, do not include 7615 unless it is genuinely relevant.
     `;
-    
 
     // Request to OpenAI API
     const response = await openai.chat.completions.create({
@@ -2328,9 +2377,10 @@ router.post("/get-taric-code-family-openai", async (req, res) => {
     // Localize error message
     const errorMessage = error.message || "Unknown error occurred.";
     return res.status(500).json({
-      error: language === "it"
-        ? `Qualcosa è andato storto: ${errorMessage}`
-        : `Something went wrong: ${errorMessage}`,
+      error:
+        language === "it"
+          ? `Qualcosa è andato storto: ${errorMessage}`
+          : `Something went wrong: ${errorMessage}`,
     });
   }
 });
@@ -2347,45 +2397,44 @@ router.post("/get-suggested-terms-openai", async (req, res) => {
       return res.status(400).json({ error: "Unsupported language" });
     }
 
-    console.log("language: " + language);
+    console.log("Language: " + language);
 
     let textToProcess = description;
 
-    // Generate prompt based on language
-    const suggestionPrompt = `
-    Given the product description, provide suggested terms for classification, along with relevant details about each term in ${language === "it" ? "Italian" : "English"}.
-    
-    - Translate terms, categories, materials, and uses to ${language === "it" ? "Italian" : "English"} where appropriate.
-    - If the same term can exist with different materials, list each **as a separate entry**.
-    - Ensure each material is **matched with the correct TARIC chapter** and its definition.
-    - Make sure to give classifications for uses
-    
-    Description: "${textToProcess}"
-    
-    Response format (in JSON):
-    {
-      "Description": "Give a summary of all suggestedTerms and give a description for the "${textToProcess}""
-      "suggestedTerms": [
-        {
-          "term": "Suggested term in ${language === "it" ? "Italian" : "English"}",
-          "category": "Product category (e.g., Household item, Beverage, Electronics, etc.)",
-          "materials": "Main materials (e.g., metal, plastic, wood) if it's an animal or an alive thing show no materials in ${language === "it" ? "Italian" : "English"}",
-          "uses": "Main uses (e.g., domestic, industrial, construction) in ${language === "it" ? "Italian" : "English"}",
-          "taricChapter": {
-            "number": "The TARIC Chapter number (e.g., 73 for metal products, 39 for plastic items)",
-            "description": "Brief definition of the TARIC chapter in ${language === "it" ? "Italian" : "English"}"
-          }
-        }
-      ]
-    }
-    
-    If the product could exist in multiple materials, return **each as a separate entry**.
-    
-    Only respond with the JSON structure, filled out based on the description provided, in ${language === "it" ? "Italian" : "English"}.
-    `;
-    
+    // Generalized prompt for handling different cases
+    const suggestionPrompt = 
+`### **Instructions:**
+1. **Translate all terms, categories, materials, and uses** into ${language === "it" ? "Italian" : "English"}.
+2. **If the same product can be made from different materials, list each material as a separate entry**.
+3. **Identify the main uses** (e.g., domestic, industrial, medical, construction, etc.).
+4. **Determine the correct TARIC chapter based on FUNCTION and MATERIAL**:
+   - If the product is a **tool, utensil, or machine component**, classify it under **the appropriate tools/equipment chapter**.
+   - If it is **raw metal, sheet metal, or general metalwork**, classify it under **Chapter 73 (Iron & Steel Products)**.
+   - If it is **cutlery, kitchenware, or precision tools**, classify it under **Chapter 82 (Tools, Cutlery, Utensils)**.
+   - If it fits elsewhere, choose the most appropriate TARIC classification.
+5. **Ensure correct classification, avoiding confusion between raw materials and finished products.**
 
-    // Fetch suggestions from OpenAI (using GPT-4)
+### **Product Description:**
+"${textToProcess}"
+
+### **Response Format (JSON):**
+{
+  "description": "Provide a summary of all suggested terms based on '${textToProcess}'",
+  "suggestedTerms": [
+    {
+      "term": "Suggested term in ${language === "it" ? "Italian" : "English"}",
+      "category": "Product category (e.g., Household item, Beverage, Electronics, etc.)",
+      "materials": "Main materials (e.g., metal, plastic, wood). If it's a living thing, set this to 'N/A'.",
+      "uses": "Main uses (e.g., domestic, industrial, construction) in ${language === "it" ? "Italian" : "English"}",
+      "taricChapter": {
+        "number": "The TARIC Chapter number (e.g., 73 for raw metal, 82 for tools, 39 for plastics, etc.)",
+        "description": "Brief definition of the TARIC chapter in ${language === "it" ? "Italian" : "English"}"
+      }
+    }
+  ]
+}`;
+
+    // Fetch suggestions from OpenAI
     const completion = await openai.chat.completions.create({
       model: 'gpt-4', // Using GPT-4
       messages: [{ role: 'user', content: suggestionPrompt }],
@@ -2395,42 +2444,34 @@ router.post("/get-suggested-terms-openai", async (req, res) => {
 
     let suggestionResponseText = completion.choices[0].message.content.trim();
 
-    // Log the raw response from the model for debugging
+    // Log the raw response from OpenAI
     console.log("Raw suggestion response:", suggestionResponseText);
 
-    // Clean up formatting by removing any unnecessary text
-    suggestionResponseText = suggestionResponseText
-      .replace(/```json|```/g, "") // Remove markdown code block syntax
-      .trim(); // Trim leading/trailing whitespace
+    // Clean up formatting
+    suggestionResponseText = suggestionResponseText.replace(/```json|```/g, "").trim();
 
-    // Parse JSON response to extract suggested terms
+    // Parse JSON response
     let suggestedTerms;
     try {
       suggestedTerms = JSON.parse(suggestionResponseText).suggestedTerms;
     } catch (error) {
       console.error("Error parsing JSON:", error);
       return res.status(400).json({
-        error:
-          "Invalid JSON format returned from model. Please check the model response.",
+        error: "Invalid JSON format returned from model. Please check the model response.",
       });
     }
 
-    // Log the final suggested terms for debugging
+    // Log the final suggested terms
     console.log("Suggested terms:", suggestedTerms);
 
-    // Send the suggested terms back as JSON
+    // Return the suggested terms
     res.json({ suggestedTerms });
+
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: "Something went wrong!" });
   }
 });
-
-
-
-
-
-
 
 
 module.exports = router;
