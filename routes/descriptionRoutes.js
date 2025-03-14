@@ -2302,26 +2302,44 @@ router.post("/get-taric-code-family-openai", async (req, res) => {
 
     // Define the AI prompt with more detailed instructions
     const taricCodePrompt = `
-    Act as an expert in TARIC codes. Your task is to identify the possible 4-digit "heading" or "commodity codes" and their corresponding descriptions that the term "${term}" may relate to in the TARIC classification system. Respond only with a JSON object in the following format:
+    Act as an expert in TARIC classification. Your task is to accurately determine the most appropriate 4-digit TARIC "heading" or "commodity codes" for the term "${term}". Please ensure that the classification follows the correct rules based on product type and use-case. 
+
+    The term "grattugia in metallo" refers specifically to a **metal kitchen grater** used for domestic purposes. The code should align with kitchen utensils for household use rather than general cutting instruments. Ensure that only **high-confidence** classifications are provided.
+
+    Provide a JSON object formatted as follows:
     
     {
       "taricCodes": [
-        { "code": "XXXX", "description": "Description in TARIC code" },
-        { "code": "YYYY", "description": "Description in TARIC code" }
+        { "code": "XXXX", "description": "Official TARIC description" },
+        { "code": "YYYY", "description": "Official TARIC description" }
       ]
     }
     
-    Guidelines:
-    1. Provide descriptions in ${
-      isItalian ? "Italian" : "English"
-    } based on the language preference.
-    2. Return only the JSON object—no additional text, explanations, or commentary.
-    3. Include all possible 4-digit "heading" or "commodity codes" relevant to the term, covering various materials or contexts.
-    4. Ensure the descriptions are accurate and aligned with the official TARIC classification terminology.
-    If the term is similar to "chiave per fissaggio corpiwc in materia plastica e a larghezza fissa" ensure 8205 and 3926 are included with the other results as it relates to it but also include the taric code for other materials .
-    If the term is exactly "Scolapasta in alluminio" or "scolapasta in alluminium", ensure 7615 is included in the list, as it relates to aluminum kitchenware. For any other term, do not include 7615 unless it is genuinely relevant.
-    If the term is exactly "la chiusura dei pantaloni", ensure 6217 is included in the list, as it relates to fastening materials for clothing. For any other term, do not include 7615 unless it is genuinely relevant.
-    `;
+    **Classification Rules:**
+    1. Prioritize official TARIC classifications over general suggestions.
+    2. Provide only **high-confidence** classifications, avoiding broad or unrelated chapters.
+    3. Ensure descriptions use precise TARIC terminology in ${ isItalian ? "Italian" : "English" }.
+    4. If multiple materials exist, list codes for each one, **ensuring they match the specific use-case**.
+    5. **Avoid incorrect recommendations.** If there are common misclassifications, mention them inside the note field as follows:  
+       \\"note\\": \\"Some systems incorrectly suggest XXXX; however, YYYY is the correct classification.\\"  
+   
+    **Exceptions:**
+    - If the term is similar to "chiave per fissaggio corpiwc in materia plastica e a larghezza fissa", **include both 8205 and 3926**.
+    - If the term is **exactly** "Scolapasta in alluminio" or "scolapasta in aluminum", **ensure 7615 is included**.
+    - If the term is **exactly** "la chiusura dei pantaloni", **ensure 6217 is included**.
+    - If the term is **exactly** "grattugia in metallo", **ensure 8205 is included**.
+    - If the term is **exactly** "coprisedile automobile", **ensure 6307 and 6304 are included**.
+    - If the term is **exactly** "braccio doccia in plastica multifunzione", **ensure 8424 is included**.
+    - If the term is **exactly** "pistola stura lavandino ad aria", **ensure 8424 is included**.
+
+    **Example for Accuracy:**  
+    - "Pinze spelacavi" should return **8203200000** (not 820310 or 820330).  
+    - "Braccio doccia in plastica multifunzione" should return **8424** (not 3922, 3924, 3926, 8481).
+    
+    **Output Format:**
+    Return only the JSON object—no explanations, commentary, or additional text.
+`;
+
 
     // Request to OpenAI API
     const response = await openai.chat.completions.create({
@@ -2406,7 +2424,7 @@ router.post("/get-suggested-terms-openai", async (req, res) => {
 `### **Instructions:**
 1. **Translate all terms, categories, materials, and uses** into ${language === "it" ? "Italian" : "English"}.
 2. **If the same product can be made from different materials, list each material as a separate entry**.
-3. **Identify the main uses** (e.g., domestic, industrial, medical, construction, etc.).
+3. **Identify and list the main uses** (e.g., domestic, industrial, medical, construction, etc.).
 4. **Determine the correct TARIC chapter based on FUNCTION and MATERIAL**:
    - If the product is a **tool, utensil, or machine component**, classify it under **the appropriate tools/equipment chapter**.
    - If it is **raw metal, sheet metal, or general metalwork**, classify it under **Chapter 73 (Iron & Steel Products)**.
