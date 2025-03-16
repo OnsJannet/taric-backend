@@ -2423,13 +2423,14 @@ router.post("/get-suggested-terms-openai", async (req, res) => {
     const suggestionPrompt = 
 `### **Instructions:**
 1. **Translate all terms, categories, materials, and uses** into ${language === "it" ? "Italian" : "English"}.
-2. **If the same product can be made from different materials, list each material as a separate entry**.
+2. **If the same product can be made from different materials, list each material as a separate entry if it's an animal or something living don't show materials**.
 3. **Identify and list the main uses** (e.g., domestic, industrial, medical, construction, etc.).
 4. **Determine the correct TARIC chapter based on FUNCTION and MATERIAL**:
    - If the product is a **tool, utensil, or machine component**, classify it under **the appropriate tools/equipment chapter**.
    - If it is **raw metal, sheet metal, or general metalwork**, classify it under **Chapter 73 (Iron & Steel Products)**.
    - If it is **cutlery, kitchenware, or precision tools**, classify it under **Chapter 82 (Tools, Cutlery, Utensils)**.
    - If it fits elsewhere, choose the most appropriate TARIC classification.
+   - For each use give me the classification of each material and for each material give me the classification for each use. 
 5. **Ensure correct classification, avoiding confusion between raw materials and finished products.**
 
 ### **Product Description:**
