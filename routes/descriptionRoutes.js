@@ -2423,9 +2423,9 @@ router.post("/get-suggested-terms-openai", async (req, res) => {
     const suggestionPrompt = 
 `### **Instructions:**
 1. **Translate all terms, categories, materials, and uses** into ${language === "it" ? "Italian" : "English"}.
-2. **Identify and list the main uses** (e.g., domestic, industrial, medical, construction, etc.)
+2. **Identify and list the main uses** (e.g., domestic, industrial, medical, construction, etc.).
 2. **If the same product can be made from different materials, list each material as a separate entry if it's an animal or something living don't show materials**.
-4. **Act as an expert in TARIC classification. Your task is to accurately determine the most appropriate 2-digit TARIC "heading" or "commodity codes" for the term "${term}". Please ensure that the classification follows the correct rules based on product type and use-case.
+4. **Act as an expert in TARIC classification. Your task is to accurately determine the most appropriate 2-digit TARIC "heading" or "commodity codes" for the term if there's possibility of more than just one give all. Please ensure that the classification follows the correct rules based on product type and use-case. 
 5. **Ensure correct classification, avoiding confusion between raw materials and finished products.**
 
 ### **Product Description:**
