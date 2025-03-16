@@ -2423,9 +2423,10 @@ router.post("/get-suggested-terms-openai", async (req, res) => {
     const suggestionPrompt = 
 `### **Instructions:**
 1. **Translate all terms, categories, materials, and uses** into ${language === "it" ? "Italian" : "English"}.
-2. **If the same product can be made from different materials, list each material as a separate entry if it's an animal or something living don't show materials**.
-3. **Identify and list the main uses** (e.g., domestic, industrial, medical, construction, etc.).
-4. **Determine the correct TARIC chapter based on FUNCTION and MATERIAL**
+2. **Identify and list the main uses** (e.g., domestic, industrial, medical, construction, etc.).
+3. **If the same product can be made from different materials, list each material as a separate entry if it's an animal or something living don't show materials**.
+4. **Determine the closest taric code based on the entry, function and material
+
    - For each use give me the classification of each material and for each material give me the classification for each use. 
 5. **Ensure correct classification, avoiding confusion between raw materials and finished products.**
 
