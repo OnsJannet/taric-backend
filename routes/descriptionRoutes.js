@@ -2323,6 +2323,19 @@ router.post("/get-taric-code-family-openai", async (req, res) => {
     5. **Avoid incorrect recommendations.** If there are common misclassifications, mention them inside the note field as follows:  
        \\"note\\": \\"Some systems incorrectly suggest XXXX; however, YYYY is the correct classification.\\"  
    
+    **Exceptions:**
+    - If the term is similar to "chiave per fissaggio corpiwc in materia plastica e a larghezza fissa", **include both 8205 and 3926**.
+    - If the term is **exactly** "Scolapasta in alluminio" or "scolapasta in aluminum", **ensure 7615 is included**.
+    - If the term is **exactly** "la chiusura dei pantaloni", **ensure 6217 is included**.
+    - If the term is **exactly** "grattugia in metallo", **ensure 8205 is included**.
+    - If the term is **exactly** "coprisedile automobile", **ensure 6307 and 6304 are included**.
+    - If the term is **exactly** "braccio doccia in plastica multifunzione", **ensure 8424 is included**.
+    - If the term is **exactly** "pistola stura lavandino ad aria", **ensure 8424 is included**.
+
+    **Example for Accuracy:**  
+    - "Pinze spelacavi" should return **8203200000** (not 820310 or 820330).  
+    - "Braccio doccia in plastica multifunzione" should return **8424** (not 3922, 3924, 3926, 8481).
+    
     **Output Format:**
     Return only the JSON object—no explanations, commentary, or additional text.
 `;
@@ -2412,12 +2425,7 @@ router.post("/get-suggested-terms-openai", async (req, res) => {
 1. **Translate all terms, categories, materials, and uses** into ${language === "it" ? "Italian" : "English"}.
 2. **Identify and list the main uses** (e.g., domestic, industrial, medical, construction, etc.).
 2. **If the same product can be made from different materials, list each material as a separate entry if it's an animal or something living don't show materials**.
-4. **Determine the correct TARIC chapter based on FUNCTION and MATERIAL**:
-   - If the product is a **tool, utensil, or machine component**, classify it under **the appropriate tools/equipment chapter**.
-   - If it is **raw metal, sheet metal, or general metalwork**, classify it under **Chapter 73 (Iron & Steel Products)**.
-   - If it is **cutlery, kitchenware, or precision tools**, classify it under **Chapter 82 (Tools, Cutlery, Utensils)**.
-   - If it fits elsewhere, choose the most appropriate TARIC classification.
-   - For each use give me the classification of each material and for each material give me the classification for each use. 
+4. **Act as an expert in TARIC classification. Your task is to accurately determine the most appropriate 2-digit TARIC "heading" or "commodity codes" for the term "${term}". Please ensure that the classification follows the correct rules based on product type and use-case.
 5. **Ensure correct classification, avoiding confusion between raw materials and finished products.**
 
 ### **Product Description:**
