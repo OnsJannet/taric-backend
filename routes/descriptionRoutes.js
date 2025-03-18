@@ -2291,11 +2291,9 @@ router.post("/get-taric-code-family-openai", async (req, res) => {
         .json({ error: "Term is required and must be a string." });
     }
     if (!["it", "en"].includes(language)) {
-      return res
-        .status(400)
-        .json({
-          error: "Unsupported language. Only 'it' or 'en' are allowed.",
-        });
+      return res.status(400).json({
+        error: "Unsupported language. Only 'it' or 'en' are allowed.",
+      });
     }
 
     const isItalian = language === "it";
@@ -2318,20 +2316,13 @@ router.post("/get-taric-code-family-openai", async (req, res) => {
     **Classification Rules:**
     1. Prioritize official Italian TARIC classifications over general suggestions.
     2. Provide only **high-confidence** classifications, avoiding broad or unrelated chapters.
-    3. Ensure descriptions use precise TARIC terminology in ${ isItalian ? "Italian" : "English" }.
+    3. Ensure descriptions use precise TARIC terminology in ${
+      isItalian ? "Italian" : "English"
+    }.
     4. If multiple materials exist, list codes for each one, **ensuring they match the specific use-case**.
     5. **Avoid incorrect recommendations.** If there are common misclassifications, mention them inside the note field as follows:  
        \\"note\\": \\"Some systems incorrectly suggest XXXX; however, YYYY is the correct classification.\\"  
    
-    **Exceptions:**
-    - If the term is similar to "chiave per fissaggio corpiwc in materia plastica e a larghezza fissa", **include both 8205 and 3926**.
-    - If the term is **exactly** "Scolapasta in alluminio" or "scolapasta in aluminum", **ensure 7615 is included**.
-    - If the term is **exactly** "la chiusura dei pantaloni", **ensure 6217 is included**.
-    - If the term is **exactly** "grattugia in metallo", **ensure 8205 is included**.
-    - If the term is **exactly** "coprisedile automobile", **ensure 6307 and 6304 are included**.
-    - If the term is **exactly** "braccio doccia in plastica multifunzione", **ensure 8424 is included**.
-    - If the term is **exactly** "pistola stura lavandino ad aria", **ensure 8424 is included**.
-
     **Example for Accuracy:**  
     - "Pinze spelacavi" should return **8203200000** (not 820310 or 820330).  
     - "Braccio doccia in plastica multifunzione" should return **8424** (not 3922, 3924, 3926, 8481).
@@ -2339,7 +2330,6 @@ router.post("/get-taric-code-family-openai", async (req, res) => {
     **Output Format:**
     Return only the JSON object—no explanations, commentary, or additional text.
 `;
-
 
     // Request to OpenAI API
     const response = await openai.chat.completions.create({
@@ -2420,13 +2410,21 @@ router.post("/get-suggested-terms-openai", async (req, res) => {
     let textToProcess = description;
 
     // Generalized prompt for handling different cases
-    const suggestionPrompt = 
-`### **Instructions:**
-1. **Translate all terms, categories, materials, and uses** into ${language === "it" ? "Italian" : "English"}.
-2. **Identify and list the main uses** (e.g., domestic, industrial, medical, construction, etc.).
-2. **If the same product can be made from different materials, list each material as a separate entry if it's an animal or something living don't show materials**.
-4. **Act as an expert in TARIC classification. Your task is to accurately determine the most appropriate 2-digit TARIC "Chapter"  for the term if there's possibility of more than just one give all. Please ensure that the classification follows the correct rules based on ${textToProcess}, product type and use-case. 
-5. **Ensure correct classification, avoiding confusion between raw materials and finished products.**
+    const suggestionPrompt = `### **Instructions:**
+1. **Translate all terms, categories, materials, and uses** into ${
+      language === "it" ? "Italian" : "English"
+    }.
+2. **Identify and list the main uses if it's a tool, device, or object**.
+3. **Determine and list ALL relevant TARIC classifications, ensuring the correct product-specific classification first, followed by any applicable material-based classifications:**
+   - **a) Exact TARIC Code:** If the product has a **specific TARIC classification**, provide the exact **8-digit TARIC code**.
+   - **b) Material classification(s):** Identify materials used and their corresponding TARIC **chapter**.
+   - **c) Product classification(s):** Identify the **specific** TARIC codes based on the function and intended use of the item.
+4. **DO NOT confuse raw materials (e.g., plastic, textile) with the final product category (e.g., car seat covers).**
+5. **DO NOT omit any valid TARIC classification, but ensure the primary classification is the most relevant.**
+6. **TARIC Classification Prioritization Order:**
+   - **Finished product classification first (8-digit TARIC code)**.
+   - **Then, if needed, reference material-based classifications**.
+7. **Provide both the generic TARIC classification (2-digit chapter) and the detailed product TARIC code**.
 
 ### **Product Description:**
 "${textToProcess}"
@@ -2437,21 +2435,35 @@ router.post("/get-suggested-terms-openai", async (req, res) => {
   "suggestedTerms": [
     {
       "term": "Suggested term in ${language === "it" ? "Italian" : "English"}",
-      "category": "Product category (e.g., Household item, Beverage, Electronics, etc.)",
-      "materials": "Main materials (e.g., metal, plastic, wood). If it's a living thing, set this to 'N/A'.",
-      "uses": "Main uses (e.g., domestic, industrial, construction) in ${language === "it" ? "Italian" : "English"}",
-      "taricChapter": {
-        "number": "The TARIC Chapter number",
-        "description": "Brief definition of the TARIC chapter in ${language === "it" ? "Italian" : "English"}"
-      }
+      "category": "Product category (e.g., Automotive accessory, Textile product, etc.)",
+      "materials": "Main materials (e.g., textile, plastic, leather).",
+      "uses": "Main uses (e.g., car seat protection, comfort enhancement).",
+      "taricClassifications": [
+        {
+          "type": "Product",
+          "number": "Specific 8-digit TARIC code based on product classification.",
+          "description": "Description of the product classification."
+        },
+        {
+          "type": "Material",
+          "number": "Chapter 2-digit code based on material classification (e.g., 39 for plastic).",
+          "description": "Material-based classification description."
+        },
+        {
+          "type": "Material",
+          "number": "Additional material-based classification, if applicable.",
+          "description": "Another material-based classification description."
+        }
+      ]
     }
   ]
-}`;
+}
+`;
 
     // Fetch suggestions from OpenAI
     const completion = await openai.chat.completions.create({
-      model: 'gpt-4', // Using GPT-4
-      messages: [{ role: 'user', content: suggestionPrompt }],
+      model: "gpt-4", // Using GPT-4
+      messages: [{ role: "user", content: suggestionPrompt }],
       max_tokens: 500,
       temperature: 0,
     });
@@ -2462,7 +2474,9 @@ router.post("/get-suggested-terms-openai", async (req, res) => {
     console.log("Raw suggestion response:", suggestionResponseText);
 
     // Clean up formatting
-    suggestionResponseText = suggestionResponseText.replace(/```json|```/g, "").trim();
+    suggestionResponseText = suggestionResponseText
+      .replace(/```json|```/g, "")
+      .trim();
 
     // Parse JSON response
     let suggestedTerms;
@@ -2471,7 +2485,8 @@ router.post("/get-suggested-terms-openai", async (req, res) => {
     } catch (error) {
       console.error("Error parsing JSON:", error);
       return res.status(400).json({
-        error: "Invalid JSON format returned from model. Please check the model response.",
+        error:
+          "Invalid JSON format returned from model. Please check the model response.",
       });
     }
 
@@ -2480,12 +2495,153 @@ router.post("/get-suggested-terms-openai", async (req, res) => {
 
     // Return the suggested terms
     res.json({ suggestedTerms });
-
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: "Something went wrong!" });
   }
 });
 
+router.post("/term-classification-openai", async (req, res) => {
+  try {
+    const { description, language } = req.body;
+
+    // Validate input
+    if (!description) {
+      return res.status(400).json({
+        error: "Description is required",
+      });
+    }
+
+    if (!["it", "en"].includes(language)) {
+      return res.status(400).json({
+        error: "Unsupported language",
+      });
+    }
+
+    console.log("Language: " + language);
+
+    let textToProcess = description;
+
+    // Generalized prompt for handling different cases
+    const suggestionPrompt = `I have a product term: ${textToProcess}. Please classify this product based on the Italian TARIC classification system, 
+    which categorizes goods into specific chapters. Each chapter corresponds to a category such as electronics, pharmaceuticals, textiles, etc. 
+    Provide the TARIC chapter and category that best matches the term, along with a confidence score if possible. 
+    If the term could match multiple categories, provide the top 3 results with their respective confidence scores.
+    Make sure if it's made from textile articles add 63 classification.
+
+    ### **Response Format (JSON):**
+{
+  "description": "Provide a summary of all suggested terms based on '${textToProcess}'",
+  "suggestedTerms": [
+    {
+     "term": "Suggested term in ${language === "it" ? "Italian" : "English"}",
+      "category": "Product category (e.g., Household item, Beverage, Electronics, etc.) in ${
+        language === "it" ? "Italian" : "English"
+      }",
+      "materials": "material in ${language === "it" ? "Italian" : "English"}",
+      "uses": "Main uses (e.g., domestic, industrial, construction) in ${
+        language === "it" ? "Italian" : "English"
+      }",
+      "taricChapter": {
+        "number": "The TARIC Chapter number",
+        "description": "Brief definition of the TARIC chapter in ${
+          language === "it" ? "Italian" : "English"
+        }"
+      }
+      "Confidence": "Percentage"
+    },
+        {
+     "term": "Suggested term in ${language === "it" ? "Italian" : "English"}",
+      "category": "Product category (e.g., Household item, Beverage, Electronics, etc.) in ${
+        language === "it" ? "Italian" : "English"
+      }",
+      "materials": "material in ${language === "it" ? "Italian" : "English"}",
+      "uses": "Main uses (e.g., domestic, industrial, construction) in ${
+        language === "it" ? "Italian" : "English"
+      }",
+      "taricChapter": {
+        "number": "The TARIC Chapter number",
+        "description": "Brief definition of the TARIC chapter in ${
+          language === "it" ? "Italian" : "English"
+        }"
+      }
+      "Confidence": "Percentage"
+    },
+        {
+     "term": "Suggested term in ${language === "it" ? "Italian" : "English"}",
+      "category": "Product category (e.g., Household item, Beverage, Electronics, etc.) in ${
+        language === "it" ? "Italian" : "English"
+      }",
+      "materials": "material in ${language === "it" ? "Italian" : "English"}",
+      "uses": "Main uses (e.g., domestic, industrial, construction) in ${
+        language === "it" ? "Italian" : "English"
+      }",
+      "taricChapter": {
+        "number": "The TARIC Chapter number",
+        "description": "Brief definition of the TARIC chapter in ${
+          language === "it" ? "Italian" : "English"
+        }"
+      }
+      "Confidence": "Percentage"
+    }
+  ]
+}
+
+Classification of the product term ${textToProcess}:`;
+
+    // Fetch suggestions from OpenAI
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4", // Using GPT-4
+      messages: [{ role: "user", content: suggestionPrompt }],
+      max_tokens: 500,
+      temperature: 0,
+    });
+
+    let suggestionResponseText = completion.choices[0].message.content.trim();
+
+    // Log the raw response from OpenAI
+    console.log("Raw suggestion response:", suggestionResponseText);
+
+    // Clean up formatting (ensure no markdown blocks)
+    suggestionResponseText = suggestionResponseText
+      .replace(/```json|```/g, "")
+      .trim();
+
+    // Parse the cleaned response into JSON
+    let parsedResponse;
+    try {
+      parsedResponse = JSON.parse(suggestionResponseText);
+      console.log("Parsed Response:", parsedResponse);
+    } catch (error) {
+      console.error("Error parsing response:", error);
+      return res.status(400).json({
+        error: "Error parsing OpenAI response.",
+        rawResponse: suggestionResponseText,
+      });
+    }
+
+    // Check if we have any suggested terms
+    const suggestedTerms = parsedResponse.suggestedTerms || [];
+
+    // Language-specific response
+    let responseMessage = {
+      suggestedTerms: suggestedTerms,
+    };
+
+    if (language === "it") {
+      responseMessage.message = "Termine classificato con successo!";
+    } else if (language === "en") {
+      responseMessage.message = "Successfully classified term!";
+    }
+
+    // Return the suggested terms with a language-based message
+    return res.json(responseMessage);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      error: "Something went wrong!",
+    });
+  }
+});
 
 module.exports = router;
