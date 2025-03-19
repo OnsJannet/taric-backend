@@ -2526,7 +2526,7 @@ router.post("/term-classification-openai", async (req, res) => {
     const suggestionPrompt = `I have a product term: ${textToProcess}. Please classify this product based on the Italian TARIC classification system, 
     which categorizes goods into specific chapters. Each chapter corresponds to a category such as electronics, pharmaceuticals, textiles, etc. 
     Provide the TARIC chapter and category that best matches the term, along with a confidence score if possible. 
-    If the term could match multiple categories, provide the top 3 results with their respective confidence scores.
+    If the term could match multiple categories, provide the top 4 results with their respective confidence scores.
     Make sure if it's made from textile articles add 63 classification.
 
     ### **Response Format (JSON):**
@@ -2534,60 +2534,19 @@ router.post("/term-classification-openai", async (req, res) => {
   "description": "Provide a summary of all suggested terms based on '${textToProcess}'",
   "suggestedTerms": [
     {
-     "term": "Suggested term in ${language === "it" ? "Italian" : "English"}",
-      "category": "Product category (e.g., Household item, Beverage, Electronics, etc.) in ${
-        language === "it" ? "Italian" : "English"
-      }",
+      "term": "Suggested term in ${language === "it" ? "Italian" : "English"}",
+      "category": "Product category (e.g., Household item, Beverage, Electronics, etc.)",
       "materials": "material in ${language === "it" ? "Italian" : "English"}",
-      "uses": "Main uses (e.g., domestic, industrial, construction) in ${
-        language === "it" ? "Italian" : "English"
-      }",
+      "uses": "Main uses (e.g., domestic, industrial, construction)",
       "taricChapter": {
         "number": "The TARIC Chapter number",
-        "description": "Brief definition of the TARIC chapter in ${
-          language === "it" ? "Italian" : "English"
-        }"
-      }
-      "Confidence": "Percentage"
-    },
-        {
-     "term": "Suggested term in ${language === "it" ? "Italian" : "English"}",
-      "category": "Product category (e.g., Household item, Beverage, Electronics, etc.) in ${
-        language === "it" ? "Italian" : "English"
-      }",
-      "materials": "material in ${language === "it" ? "Italian" : "English"}",
-      "uses": "Main uses (e.g., domestic, industrial, construction) in ${
-        language === "it" ? "Italian" : "English"
-      }",
-      "taricChapter": {
-        "number": "The TARIC Chapter number",
-        "description": "Brief definition of the TARIC chapter in ${
-          language === "it" ? "Italian" : "English"
-        }"
-      }
-      "Confidence": "Percentage"
-    },
-        {
-     "term": "Suggested term in ${language === "it" ? "Italian" : "English"}",
-      "category": "Product category (e.g., Household item, Beverage, Electronics, etc.) in ${
-        language === "it" ? "Italian" : "English"
-      }",
-      "materials": "material in ${language === "it" ? "Italian" : "English"}",
-      "uses": "Main uses (e.g., domestic, industrial, construction) in ${
-        language === "it" ? "Italian" : "English"
-      }",
-      "taricChapter": {
-        "number": "The TARIC Chapter number",
-        "description": "Brief definition of the TARIC chapter in ${
-          language === "it" ? "Italian" : "English"
-        }"
-      }
+        "description": "Brief definition of the TARIC chapter",
+        "4digit taric": "4digit taric number"
+      },
       "Confidence": "Percentage"
     }
   ]
-}
-
-Classification of the product term ${textToProcess}:`;
+}`
 
     // Fetch suggestions from OpenAI
     const completion = await openai.chat.completions.create({
@@ -2638,6 +2597,97 @@ Classification of the product term ${textToProcess}:`;
     return res.json(responseMessage);
   } catch (error) {
     console.error(error);
+    res.status(500).json({
+      error: "Something went wrong!",
+    });
+  }
+});
+
+router.post("/taric-classification-openai", async (req, res) => {
+  try {
+    const { term, taricPrefix } = req.body;
+
+    // Validate input
+    if (!term || !taricPrefix ) {
+      return res.status(400).json({
+        error: "Both 'term' and a valid 2-digit 'taricPrefix' are required.",
+      });
+    }
+
+    console.log(`Processing TARIC classification for: ${term} (Prefix: ${taricPrefix})`);
+
+    // Construct the refined OpenAI prompt
+    const classificationPrompt = `
+    You are a TARIC classification assistant. Your task is to classify products based on their TARIC 2-digit prefix and product description.
+    
+    - You must return exactly **4 TARIC classifications** that **start with the given prefix**.
+    - Each classification must include:
+      - If the prefix is **"Altri"** or any case variation (e.g., "altri", "ALTRI"), return possible 4-digit TARIC codes that start with the given prefix and include **general classifications**.
+      - A **4-digit TARIC code** that starts with the given **2-digit prefix**.
+      - A **brief description** of the classification.
+      - A **confidence score (0-100)**.
+      - If the product is a **kitchen or household tool**, ensure **8205** is considered if applicable.
+      - **Do not include any prefixes like "ALTR"**. The TARIC code must be a valid 4-digit code, such as "8201", "8202", etc. Do not use any non-standard formats.
+    
+    ### Example Input:
+    Product: "grattugia in metallo"
+    TARIC Prefix: 82
+    
+    ### Expected Output Format:
+    \`\`\`json
+    {
+      "taricCodes": [
+        { "code": "4-digit TARIC code", "description": "brief description** of the classification", "score": confidence score (0-100) },
+        { "code": "4-digit TARIC code", "description": "brief description** of the classification", "score": confidence score (0-100) },
+        { "code": "4-digit TARIC code", "description": "Cbrief description** of the classification", "score": confidence score (0-100) },
+        { "code": "4-digit TARIC code", "description": "brief description** of the classification", "score": confidence score (0-100) }
+       
+
+      ]
+    }
+    \`\`\`
+    
+    ### Task:
+    Now, classify the following:
+    
+    - **Product:** "${term}"
+    - **TARIC Prefix:** "${taricPrefix}"
+    
+    Return only the **JSON object**, with no explanations or additional text.
+    `;
+    
+
+    // Call OpenAI API for classification
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4",
+      messages: [{ role: "user", content: classificationPrompt }],
+      max_tokens: 500,
+      temperature: 0,
+    });
+
+    let responseText = completion.choices[0].message.content.trim();
+
+    console.log("Raw TARIC response:", responseText);
+
+    // Clean up formatting (ensure no markdown blocks)
+    responseText = responseText.replace(/```json|```/g, "").trim();
+
+    // Parse response into JSON
+    let parsedResponse;
+    try {
+      parsedResponse = JSON.parse(responseText);
+      console.log("Parsed TARIC Classification:", parsedResponse);
+    } catch (error) {
+      console.error("Error parsing OpenAI response:", error);
+      return res.status(400).json({
+        error: "Error parsing OpenAI response.",
+        rawResponse: responseText,
+      });
+    }
+
+    return res.json(parsedResponse);
+  } catch (error) {
+    console.error("TARIC classification error:", error);
     res.status(500).json({
       error: "Something went wrong!",
     });
