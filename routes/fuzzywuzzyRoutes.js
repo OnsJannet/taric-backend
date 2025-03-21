@@ -89,7 +89,11 @@ const fuzzySearch = (word, language, json) => {
     }
   });
 
-  return json; // Return the modified JSON directly
+  // Sort the items based on scoresum, in descending order
+  const sortedJson = json.sort((a, b) => b.scoresum - a.scoresum);
+
+  // If there are more than 3 items, only keep the top 3
+  return sortedJson.slice(0, 3);
 };
 
 // Define the /fuzzy-search route

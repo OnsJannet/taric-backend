@@ -2530,18 +2530,21 @@ router.post("/term-classification-openai", async (req, res) => {
     If the term could match multiple categories, provide the top 4 results with their respective confidence scores.
     Make sure if it's made from textile articles add 63 classification.
 
+    if ${textToProcess} is Sgabello include 73 in the list
+    if ${textToProcess} is Giara or giara include 73, 69, 70 in the list
+
     ### **Response Format (JSON):**
 {
   "description": "Provide a summary of all suggested terms based on '${textToProcess}'",
   "suggestedTerms": [
     {
       "term": "Suggested term in ${language === "it" ? "Italian" : "English"}",
-      "category": "Product category (e.g., Household item, Beverage, Electronics, etc.)",
+      "category": "Product category (e.g., Household item, Beverage, Electronics, etc.) in ${language === "it" ? "Italian" : "English"}",
       "materials": "material in ${language === "it" ? "Italian" : "English"}",
-      "uses": "Main uses (e.g., domestic, industrial, construction)",
+      "uses": "Main uses (e.g., domestic, industrial, construction) in ${language === "it" ? "Italian" : "English"}",
       "taricChapter": {
         "number": "The TARIC Chapter number",
-        "description": "Brief definition of the TARIC chapter",
+        "description": "Brief definition of the TARIC chapter in ${language === "it" ? "Italian" : "English"}",
         "4digit taric": "4digit taric number"
       },
       "Confidence": "Percentage"
