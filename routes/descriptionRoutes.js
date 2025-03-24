@@ -2626,9 +2626,13 @@ router.post("/taric-classification-openai", async (req, res) => {
     
     - You must return exactly **4 TARIC classifications** that **start with the given prefix**.
     - Each classification must include:
-      - If the prefix is **"Altri"** or any case variation (e.g., "altri", "ALTRI"), return possible 4-digit TARIC codes that start with the given prefix and include **general classifications**.
+      - If the prefix is **"Altri"** or any case variation (e.g., "altri", "ALTRI"), return possible 4-digit TARIC codes that start with the given prefix and include **general classifications** ${
+      language === "it" ? "Italian" : "English"
+    }.
       - A **4-digit TARIC code** that starts with the given **2-digit prefix**.
-      - A **brief description** of the classification.
+      - A **brief description** of the classification ${
+      language === "it" ? "Italian" : "English"
+    }.
       - A **confidence score (0-100)**.
       - If the product is a **kitchen or household tool**, ensure **8205** is considered if applicable.
       - **Do not include any prefixes like "ALTR"**. The TARIC code must be a valid 4-digit code, such as "8201", "8202", etc. Do not use any non-standard formats.
