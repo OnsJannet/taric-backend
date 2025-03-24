@@ -2611,6 +2611,8 @@ router.post("/taric-classification-openai", async (req, res) => {
   try {
     const { term, taricPrefix } = req.body;
 
+    const language = "it"
+
     // Validate input
     if (!term || !taricPrefix ) {
       return res.status(400).json({
