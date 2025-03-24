@@ -2549,42 +2549,6 @@ router.post("/term-classification-openai", async (req, res) => {
       },
       "Confidence": "Percentage"
     },
-    {
-      "term": "Suggested term in ${language === "it" ? "Italian" : "English"}",
-      "category": "Product category (e.g., Household item, Beverage, Electronics, etc.) in ${language === "it" ? "Italian" : "English"}",
-      "materials": "material in ${language === "it" ? "Italian" : "English"}",
-      "uses": "Main uses (e.g., domestic, industrial, construction) in ${language === "it" ? "Italian" : "English"}",
-      "taricChapter": {
-        "number": "The TARIC Chapter number",
-        "description": "Brief definition of the TARIC chapter in ${language === "it" ? "Italian" : "English"}",
-        "4digit taric": "4digit taric number"
-      },
-      "Confidence": "Percentage"
-    },
-    {
-      "term": "Suggested term in ${language === "it" ? "Italian" : "English"}",
-      "category": "Product category (e.g., Household item, Beverage, Electronics, etc.) in ${language === "it" ? "Italian" : "English"}",
-      "materials": "material in ${language === "it" ? "Italian" : "English"}",
-      "uses": "Main uses (e.g., domestic, industrial, construction) in ${language === "it" ? "Italian" : "English"}",
-      "taricChapter": {
-        "number": "The TARIC Chapter number",
-        "description": "Brief definition of the TARIC chapter in ${language === "it" ? "Italian" : "English"}",
-        "4digit taric": "4digit taric number"
-      },
-      "Confidence": "Percentage"
-    },
-    {
-      "term": "Suggested term in ${language === "it" ? "Italian" : "English"}",
-      "category": "Product category (e.g., Household item, Beverage, Electronics, etc.) in ${language === "it" ? "Italian" : "English"}",
-      "materials": "material in ${language === "it" ? "Italian" : "English"}",
-      "uses": "Main uses (e.g., domestic, industrial, construction) in ${language === "it" ? "Italian" : "English"}",
-      "taricChapter": {
-        "number": "The TARIC Chapter number",
-        "description": "Brief definition of the TARIC chapter in ${language === "it" ? "Italian" : "English"}",
-        "4digit taric": "4digit taric number"
-      },
-      "Confidence": "Percentage"
-    }
   ]
 }`
 
