@@ -23,21 +23,7 @@ const port = process.env.PORT || 5000;
 connectDB();
 
 // CORS configuration
-app.use(
-  cors({
-    origin: [
-      "http://localhost:3000", // Allow localhost for local development
-      "http://localhost:3001",
-      "https://taric-frontend.vercel.app", // Allow the deployed frontend URL
-      "https://taric-frontend-mu.vercel.app",
-      "https://app.taric.incentivesolutions.tn/",
-      "https://taric.incentivesolutions.tn/",
-      ""
-    ],
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
-  })
-);
+app.use(cors());
 
 
 // Handling preflight OPTIONS requests
