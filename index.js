@@ -30,8 +30,10 @@ app.use(
       "http://localhost:3001",
       "https://taric-frontend.vercel.app", // Allow the deployed frontend URL
       "https://taric-frontend-mu.vercel.app",
+      "https://app.taric.incentivesolutions.tn/",
+      "https://taric.incentivesolutions.tn/",
       ""
-    ], 
+    ],
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
   })
