@@ -26,17 +26,9 @@ connectDB();
 app.use(cors());
 
 
-// Handling preflight OPTIONS requests
-app.options("*", (req, res) => {
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
-  res.status(204).end();
-});
-
 // Middleware for chunking large request bodies
 let requestChunks = {};  // Temporary storage for chunks
-
+app.set('trust proxy', ['loopback', 'linklocal', 'uniquelocal'])
 app.use(express.json({ limit: "200mb" })); // Increased limit to 200mb
 
 // Middleware to log request details
@@ -86,7 +78,9 @@ app.use((req, res, next) => {
   }
   next();
 });
-
+app.get('/', (req, res) => {
+  res.json({ message: 'Server is running!' })
+});
 // Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/goods", goodsRoutes);
