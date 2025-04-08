@@ -1,57 +1,75 @@
-const puppeteer = require('puppeteer');
-const fs = require('fs');
+const scraperService = require('./services/scraperService');
+const { ApiError } = require('./middlewares/errorMiddleware');
+require('dotenv').config();
 
-// Function to scrape data for a specific language
-async function scrapePage(page, pageNumber, lang) {
-    // Calculate the offset for pagination
-    const offset = (pageNumber - 1) * 25;
-    const url = `https://ec.europa.eu/taxation_customs/dds2/taric/measures.jsp?Lang=${lang}&SimDate=20240815&Area=&MeasType=&StartPub=&EndPub=&MeasText=&GoodsText=&op=&Taric=&AdditionalCode=&search_text=goods&textSearch=&LangDescr=${lang}&OrderNum=&Regulation=&measStartDat=&measEndDat=&DatePicker=15-08-2024&ShowMatchingGoods=&Domain=TARIC&ExpandAll=&DomainNameLink=measures.jsp&search_text=goods&Offset=${offset}`;
-
-    await page.goto(url, { waitUntil: 'networkidle2' });
-
-    const results = await page.evaluate(() => {
-        let items = [];
-
-        document.querySelectorAll('[class^="nomenclaturecode"]').forEach((element) => {
-            let code = element.querySelector('.tdlabel')?.innerText.trim();
-            let description = element.querySelector('.to_highlight')?.innerText.trim();
-            let footnotes = element.querySelector('span.footnote_parenthesis')?.innerHTML || '';
-
-            if (footnotes) {
-                description += ` ${footnotes}`;
-            }
-
-            if (code && description) {
-                items.push({ code, description });
-            }
-        });
-
-        return items;
-    });
-
-    return results;
-}
-
-async function scrapeAllPagesForLanguage(lang, fileName) {
-    const browser = await puppeteer.launch();
-    const page = await browser.newPage();
-    let allResults = [];
-
-    for (let i = 1; i <= 220; i++) {
-        console.log(`Scraping ${lang} page ${i}...`);
-        const pageResults = await scrapePage(page, i, lang);
-        allResults = allResults.concat(pageResults);
+/**
+ * Main function to execute the scraping process
+ */
+const runScraper = async () => {
+  try {
+    console.log('Starting scraping process...');
+    const startTime = Date.now();
+    
+    // Add memory usage monitoring
+    const initialMemoryUsage = process.memoryUsage();
+    console.log('Initial memory usage:', formatMemoryUsage(initialMemoryUsage));
+    
+    // Run the scraper with progress reporting
+    const result = await scraperService.scrapeAllLanguages();
+    
+    // Log completion statistics
+    const endTime = Date.now();
+    const duration = (endTime - startTime) / 1000;
+    const finalMemoryUsage = process.memoryUsage();
+    
+    console.log(`Scraping completed in ${duration.toFixed(2)} seconds`);
+    console.log('Final memory usage:', formatMemoryUsage(finalMemoryUsage));
+    console.log('Memory difference:', formatMemoryUsageDifference(initialMemoryUsage, finalMemoryUsage));
+    
+    console.log(`Total items scraped: EN=${result.en.length}, IT=${result.it.length}`);
+    
+    return result;
+  } catch (error) {
+    console.error('Error in scraping process:', error);
+    if (error instanceof ApiError) {
+      console.error(`API Error (${error.statusCode}): ${error.message}`);
     }
+    process.exit(1);
+  }
+};
 
-    await browser.close();
+/**
+ * Format memory usage for logging
+ * @param {Object} memoryUsage - Memory usage object from process.memoryUsage()
+ * @returns {Object} - Formatted memory usage
+ */
+const formatMemoryUsage = (memoryUsage) => {
+  return {
+    rss: `${Math.round(memoryUsage.rss / 1024 / 1024)} MB`,
+    heapTotal: `${Math.round(memoryUsage.heapTotal / 1024 / 1024)} MB`,
+    heapUsed: `${Math.round(memoryUsage.heapUsed / 1024 / 1024)} MB`,
+    external: `${Math.round(memoryUsage.external / 1024 / 1024)} MB`
+  };
+};
 
-    // Save results to a JSON file
-    fs.writeFileSync(fileName, JSON.stringify(allResults, null, 2));
-    console.log(`Scraping completed for ${lang} and data saved to ${fileName}`);
+/**
+ * Calculate memory usage difference
+ * @param {Object} start - Initial memory usage
+ * @param {Object} end - Final memory usage
+ * @returns {Object} - Memory usage difference
+ */
+const formatMemoryUsageDifference = (start, end) => {
+  return {
+    rss: `${Math.round((end.rss - start.rss) / 1024 / 1024)} MB`,
+    heapTotal: `${Math.round((end.heapTotal - start.heapTotal) / 1024 / 1024)} MB`,
+    heapUsed: `${Math.round((end.heapUsed - start.heapUsed) / 1024 / 1024)} MB`,
+    external: `${Math.round((end.external - start.external) / 1024 / 1024)} MB`
+  };
+};
+
+// Execute the scraper if this file is run directly
+if (require.main === module) {
+  runScraper();
 }
 
-// Execute the scraping functions for both languages
-(async () => {
-    await scrapeAllPagesForLanguage('en', 'scraped_data_en.json');
-    await scrapeAllPagesForLanguage('it', 'scraped_data_it.json');
-})();
+module.exports = { runScraper };

@@ -1,127 +1,178 @@
-const carts = {}; // To store the cart data for users
-const cartStatus = {}; // To store the status of each user's cart (e.g., open, paid, closed)
-const Cart = require('../models/Cart');
+const express = require('express');
+const { check, validationResult } = require('express-validator');
+const { protect } = require('../middlewares/authMiddleware');
+const cartService = require('../services/cartService');
+const { ApiError } = require('../middlewares/errorMiddleware');
+const rateLimit = require('express-rate-limit');
 
-// Function to create a new cart for a user
-const createCart = async (userId) => {
+const router = express.Router();
+
+// Create a rate limiter for cart operations
+const cartLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // limit each IP to 100 requests per windowMs
+  message: 'Too many cart operations from this IP, please try again after 15 minutes'
+});
+
+/**
+ * @route   POST /api/cart
+ * @desc    Create a new cart
+ * @access  Private
+ */
+router.post('/', [protect, cartLimiter], async (req, res, next) => {
   try {
-    // Check if there's already an open cart
-    const existingCart = await Cart.findOne({ userId, status: 'open' });
-    if (existingCart) throw new Error('Cart already exists for this user and is open.');
-
-    // Create a new cart with empty items
-    const newCart = new Cart({ userId, items: [] });
-    await newCart.save();
-    return newCart;
+    const cart = await cartService.createCart(req.user.id);
+    res.status(201).json({ 
+      success: true, 
+      data: cart,
+      message: 'Cart created successfully'
+    });
   } catch (error) {
-    throw new Error(error.message);
+    next(error);
   }
-};
+});
 
-// Function to add an item to the cart, with cart creation if it doesn't exist
-const addItemToCart = async (userId, { code, score, value, data, quantity }) => {
+/**
+ * @route   POST /api/cart/items
+ * @desc    Add item to cart
+ * @access  Private
+ */
+router.post('/items', [
+  protect,
+  cartLimiter,
+  check('code').notEmpty().withMessage('Product code is required'),
+  check('quantity').isInt({ min: 1 }).withMessage('Quantity must be at least 1')
+], async (req, res, next) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return next(new ApiError(400, 'Validation error', true, null));
+  }
+
   try {
-    // Find the user's cart
-    let cart = await Cart.findOne({ userId, status: 'open' });
-
-    // Automatically create a new cart if one doesn't exist or is closed/paid
-    if (!cart) {
-      cart = await createCart(userId);
-    }
-
-    // Check if the item (by product code) is already in the cart
-    const existingItem = cart.items.find(item => item.code === code);
-
-    if (existingItem) {
-      // Update the quantity if the item already exists
-      existingItem.quantity += quantity;
-    } else {
-      // Add a new item to the cart
-      cart.items.push({ code, score, value, data, quantity });
-    }
-
-    // Save the updated cart
-    await cart.save();
-
-    // Find the user and update the 'carts' field
-    await User.findByIdAndUpdate(
-      userId,
-      { $addToSet: { carts: cart._id } }, // Add the cart ID to the user's 'carts' array
-      { new: true } // Return the updated document
-    );
+    const { code, score, value, data, quantity } = req.body;
+    const cart = await cartService.addItemToCart(req.user.id, { 
+      code, 
+      score: score || 0, 
+      value: value || '', 
+      data: data || {}, 
+      quantity: parseInt(quantity) 
+    });
+    
+    res.status(200).json({ 
+      success: true, 
+      data: cart,
+      message: 'Item added to cart successfully'
+    });
   } catch (error) {
-    throw new Error(`Error adding item to cart: ${error.message}`);
+    next(error);
   }
-};
+});
 
-
-// Function to remove an item from the cart
-const removeItemFromCart = async (userId, code) => {
-  const cart = await Cart.findOne({ userId, status: 'open' });
-  if (!cart) {
-    throw new Error('Cart does not exist for this user.');
+/**
+ * @route   DELETE /api/cart/items/:code
+ * @desc    Remove item from cart
+ * @access  Private
+ */
+router.delete('/items/:code', [protect, cartLimiter], async (req, res, next) => {
+  try {
+    const cart = await cartService.removeItemFromCart(req.user.id, req.params.code);
+    res.status(200).json({ 
+      success: true, 
+      data: cart,
+      message: 'Item removed from cart successfully'
+    });
+  } catch (error) {
+    next(error);
   }
-  cart.items = cart.items.filter(item => item.code !== code); // Remove by product code
-  await cart.save(); // Save the updated cart
-};
+});
 
-// Function to get all items in the cart
-const getCartItems = async (userId) => {
-  const cart = await Cart.findOne({ userId, status: 'open' });
-  if (!cart) {
-    throw new Error('Cart does not exist for this user.');
+/**
+ * @route   GET /api/cart/items
+ * @desc    Get all items in cart
+ * @access  Private
+ */
+router.get('/items', protect, async (req, res, next) => {
+  try {
+    const items = await cartService.getCartItems(req.user.id);
+    res.status(200).json({ 
+      success: true, 
+      data: items,
+      count: items.length
+    });
+  } catch (error) {
+    next(error);
   }
-  return cart.items; // Return the items from the cart
-};
+});
 
-// Function to clear the cart
-const clearCart = async (userId) => {
-  const cart = await Cart.findOne({ userId, status: 'open' });
-  if (!cart) {
-    throw new Error('Cart does not exist for this user.');
+/**
+ * @route   DELETE /api/cart/items
+ * @desc    Clear all items from cart
+ * @access  Private
+ */
+router.delete('/items', [protect, cartLimiter], async (req, res, next) => {
+  try {
+    const cart = await cartService.clearCart(req.user.id);
+    res.status(200).json({ 
+      success: true, 
+      data: cart,
+      message: 'Cart cleared successfully'
+    });
+  } catch (error) {
+    next(error);
   }
-  cart.items = []; // Clear the cart
-  await cart.save(); // Save the updated cart
-};
+});
 
-// Function to delete the cart
-const deleteCart = async (userId) => {
-  const cart = await Cart.findOne({ userId, status: 'open' });
-  if (!cart) {
-    throw new Error('Cart does not exist for this user.');
+/**
+ * @route   DELETE /api/cart
+ * @desc    Delete cart
+ * @access  Private
+ */
+router.delete('/', [protect, cartLimiter], async (req, res, next) => {
+  try {
+    await cartService.deleteCart(req.user.id);
+    res.status(200).json({ 
+      success: true, 
+      message: 'Cart deleted successfully' 
+    });
+  } catch (error) {
+    next(error);
   }
-  await Cart.deleteOne({ userId, status: 'open' }); // Delete the cart from the database
-  delete cartStatus[userId];
-};
+});
 
-// Function to cancel a cart
-const cancelCart = async (userId) => {
-  const cart = await Cart.findOne({ userId, status: 'open' });
-  if (!cart) {
-    throw new Error('Cart does not exist for this user.');
+/**
+ * @route   PUT /api/cart/cancel
+ * @desc    Cancel cart
+ * @access  Private
+ */
+router.put('/cancel', [protect, cartLimiter], async (req, res, next) => {
+  try {
+    const cart = await cartService.cancelCart(req.user.id);
+    res.status(200).json({ 
+      success: true, 
+      data: cart,
+      message: 'Cart cancelled successfully'
+    });
+  } catch (error) {
+    next(error);
   }
-  cart.items = [];
-  await cart.save();
-  cartStatus[userId] = 'closed'; // Mark the cart as closed
-};
+});
 
-// Function to mark the cart as "paid"
-const markCartAsPaid = async (userId) => {
-  const cart = await Cart.findOne({ userId, status: 'open' });
-  if (!cart) {
-    throw new Error('Cart does not exist for this user.');
+/**
+ * @route   PUT /api/cart/pay
+ * @desc    Mark cart as paid
+ * @access  Private
+ */
+router.put('/pay', [protect, cartLimiter], async (req, res, next) => {
+  try {
+    const cart = await cartService.markCartAsPaid(req.user.id);
+    res.status(200).json({ 
+      success: true, 
+      data: cart,
+      message: 'Cart marked as paid successfully'
+    });
+  } catch (error) {
+    next(error);
   }
-  cartStatus[userId] = 'paid'; // Mark the cart as paid
-};
+});
 
-// Export the functions
-module.exports = {
-  createCart,
-  addItemToCart,
-  removeItemFromCart,
-  getCartItems,
-  clearCart,
-  deleteCart,
-  cancelCart,
-  markCartAsPaid,
-};
+module.exports = router;

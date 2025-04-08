@@ -1,86 +1,49 @@
 const express = require('express');
 const { check, validationResult } = require('express-validator');
+const elasticService = require('../services/elasticService');
+const { ApiError } = require('../middlewares/errorMiddleware');
+const rateLimit = require('express-rate-limit');
 
 const router = express.Router();
 
+// Create a rate limiter for search requests
+const searchLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000, // 1 minute
+  max: 30, // limit each IP to 30 requests per windowMs
+  message: 'Too many search requests from this IP, please try again after a minute'
+});
+
+// Load data once at module initialization
 const scrapedDataEn = require('../scraped_data_en.json');
 const scrapedDataIt = require('../scraped_data_it.json');
 
-// Function to clean HTML tags from descriptions
-const stripHtmlTags = (text) => text.replace(/<\/?[^>]+>/gi, '').trim();
-
-// Function to extract text before a specific HTML tag
-const extractTextBeforeTag = (text) => {
-  const regex = /(.*?)(?:\s*<a\s+class="ecl-link.*?>.*<\/a>)$/i;
-  const match = text.match(regex);
-  return match ? match[1].trim() : text;
-};
-
-// Function to perform search
-const search = (data, term) => {
-  console.log('Searching for term:', term);
-  console.log('Data length:', data.length);
-
-  // Clean and normalize term
-  const cleanedTerm = term.toLowerCase().trim();
-  console.log('Cleaned term:', cleanedTerm);
-
-  // Split the cleaned term into individual words
-  const termsArray = cleanedTerm.split(/\s+/);
-  console.log('Split terms:', termsArray);
-
-  const resultsMap = {};
-
-  // Search for each term separately
-  termsArray.forEach(word => {
-    console.log('Searching for word:', word);
-
-    data.forEach(item => {
-      let cleanedDescription = stripHtmlTags(item.description).toLowerCase().trim();
-      cleanedDescription = extractTextBeforeTag(cleanedDescription);
-
-      console.log('Description:', cleanedDescription);
-
-      if (cleanedDescription.includes(word)) {
-        if (!resultsMap[item.code]) {
-          resultsMap[item.code] = { item, matchCount: 0 };
-        }
-        resultsMap[item.code].matchCount += 1;
-      }
-    });
-  });
-
-  // Convert the map to an array and sort by match count
-  const results = Object.values(resultsMap)
-    .sort((a, b) => b.matchCount - a.matchCount)
-    .map(result => result.item);
-
-  console.log('Results:', results);
-  return results;
-};
-
-// API route to fetch suggestions
+/**
+ * @route   GET /api/elastic/suggestions
+ * @desc    Get suggestions based on search term
+ * @access  Public
+ */
 router.get('/suggestions', [
+  searchLimiter,
   check('term').notEmpty().withMessage('Term is required'),
   check('lang').notEmpty().withMessage('Language is required')
-], async (req, res) => {
+], async (req, res, next) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
-    return res.status(400).send(errors.array());
+    return next(new ApiError(400, 'Validation error', true, null));
   }
 
   const { term, lang } = req.query;
   const data = lang === 'it' ? scrapedDataIt : scrapedDataEn;
 
-  console.log('Requested term:', term);
-  console.log('Data source:', lang === 'it' ? 'scrapedDataIt' : 'scrapedDataEn');
-
   try {
-    const results = search(data, term);
-    res.json({ results });
+    const results = elasticService.search(data, term);
+    res.json({ 
+      success: true,
+      results,
+      count: results.length
+    });
   } catch (error) {
-    console.error('Error performing search:', error);
-    res.status(500).send('Internal Server Error');
+    next(new ApiError(500, `Error performing search: ${error.message}`));
   }
 });
 

@@ -1,20 +1,18 @@
 const express = require("express");
-const { GoogleGenerativeAI } = require("@google/generative-ai"); // Import the correct class
 require("dotenv").config(); // Load environment variables
 const axios = require("axios");
 const fetch = require("node-fetch");
 const path = require("path");
 const fs = require("fs");
-const OpenAI = require("openai");
+const { GoogleGenerativeAI } = require("@google/generative-ai");
+const aiService = require("../services/aiService");
 
 const router = express.Router();
 
-let goodsData = [];
+// Initialize Google Generative AI with API key
+const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY);
 
-// Initialize OpenAI with API key
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+let goodsData = [];
 
 // Load TARIC data from the given URL
 const loadGoodsData = async () => {
@@ -59,8 +57,7 @@ const loadDataMiddleware = async (req, res, next) => {
   next();
 };
 
-// Initialize Google Generative AI instance
-const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY);
+// AI service is now imported from services/aiService.js
 
 // Helper function to get data by language
 const getDataByLanguage = (language) =>
@@ -69,15 +66,11 @@ const getDataByLanguage = (language) =>
 // AI function to determine the TARIC code using the generative model
 const getTaricCode = async (term) => {
   try {
-    //const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-    const model = genAI.getGenerativeModel(
-      { model: "gemini-1.5-pro" },
-      { apiVersion: "v1beta" }
-    );
-    const response = await model.generateText({
-      prompt: `Find the 4-digit TARIC code for the product: ${term}`,
+    const prompt = aiService.optimizePrompt(`Find the 4-digit TARIC code for the product: ${term}`);
+    const responseText = await aiService.getGeminiResponse(prompt, {
+      model: "gemini-1.5-pro"
     });
-    return response.data.text.trim();
+    return responseText;
   } catch (error) {
     console.error("Error fetching TARIC code from the model:", error);
     return null;
@@ -166,25 +159,15 @@ router.post("/get-word", async (req, res) => {
       return res.status(400).json({ error: "Unsupported language" });
     }
 
-    // Initialize the model
-    //const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" }); // Specify the model
-    const model = genAI.getGenerativeModel(
-      { model: "gemini-1.5-pro" },
-      { apiVersion: "v1beta" }
-    );
-
-    // Generate content based on the description
-    //const prompt = `Basato sulla seguente descrizione ${language === 'it' ? 'in italiano' : 'in inglese'}, fornisci le seguenti informazioni in modo dettagliato:\n\n1. Una sola parola che descrive meglio l'oggetto (es. "appendiabiti" o "hanger").\n2. Un elenco di codici di famiglia TARIC (6 cifre) associati ai materiali descritti (legno, plastica, metallo), separati da virgole. Se nella descrizione ci sono materiali specifici, aggiungi i loro codici TARIC. I codici devono essere privi di punti (.) e consistenti di 6 cifre.\n3. Un elenco di suggerimenti abbinati (12 cifre) corrispondenti a quei codici di famiglia, separati da virgole. Anche i suggerimenti devono essere privi di punti (.) e consistenti di 12 cifre.\n\nDescrizione: "${textToProcess}".\n\nFormatta la risposta come segue:\n\nword: [la parola]\nFamily: [elenco di codici di famiglia a 4 cifre, senza punti]\nMatched Suggestion: [elenco di suggerimenti abbinati a 12 cifre, senza punti]. Assicurati di fornire tutte le informazioni richieste e di includere i codici dei materiali se presenti.`;
-    const prompt = `Basato sulla seguente descrizione ${
+    // Optimize the prompt to reduce token usage
+    const prompt = aiService.optimizePrompt(`Basato sulla seguente descrizione ${
       language === "it" ? "in italiano" : "in inglese"
-    }, fornisci una frase che descrive l'oggetto utilizzando il termine corretto e includendo tutti i materiali specifici in un elenco. Ad esempio, se l'oggetto è un appendiabiti di plastica o di metallo, rispondi "Appendiabiti di legno, materiale plastico, metallo".\n\nDescrizione: "${textToProcess}".\n\nFormatta la risposta come segue:\n\n"[la frase completa con il termine corretto e i materiali in un elenco separato da virgole]". Assicurati di includere tutti i materiali menzionati nella descrizione e di fornire la risposta nel formato richiesto.`;
+    }, fornisci una frase che descrive l'oggetto utilizzando il termine corretto e includendo tutti i materiali specifici in un elenco. Ad esempio, se l'oggetto è un appendiabiti di plastica o di metallo, rispondi "Appendiabiti di legno, materiale plastico, metallo".\n\nDescrizione: "${textToProcess}".\n\nFormatta la risposta come segue:\n\n"[la frase completa con il termine corretto e i materiali in un elenco separato da virgole]". Assicurati di includere tutti i materiali menzionati nella descrizione e di fornire la risposta nel formato richiesto.`);
 
-    //const prompt = `Basato sulla seguente descrizione ${language === 'it' ? 'in italiano' : 'in inglese'}, fornisci una frase che descrive l'oggetto utilizzando il termine corretto e includendo i materiali specifici. Ad esempio, se l'oggetto è un appendiabiti di plastica o di metallo, rispondi "Appendiabiti di materiale plastico o di metallo".\n\nDescrizione: "${textToProcess}".\n\nRispondi con la seguente struttura:\n\n"word e material: [la frase completa]". Assicurati di fornire tutte le informazioni richieste.`;
-
-    const result = await model.generateContent([prompt]);
-
-    // Get the generated response
-    const responseText = result.response.text().trim(); // Trim any whitespace
+    // Use the AI service with caching
+    const responseText = await aiService.getGeminiResponse(prompt, {
+      model: "gemini-1.5-pro"
+    });
 
     // Process the response to extract the desired fields
     const lines = responseText.split("\n").reduce((acc, line) => {
@@ -232,15 +215,8 @@ router.post("/get-taric-codes", async (req, res) => {
 
     let textToProcess = description;
 
-    // Initialize the model
-    //const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-    const model = genAI.getGenerativeModel(
-      { model: "gemini-1.5-pro" },
-      { apiVersion: "v1beta" }
-    );
-
-    // Updated prompt to include the necessary instruction for code and description display
-    const prompt = `
+    // Optimize the prompt to reduce token usage
+    const prompt = aiService.optimizePrompt(`
     Basato sulla seguente descrizione ${
       language === "it" ? "in italiano" : "in inglese"
     }, fornisci le seguenti informazioni:
@@ -261,11 +237,12 @@ router.post("/get-taric-codes", async (req, res) => {
     Descriptions: [descrizioni per ciascun suggerimento]
     Possible Other Codes: [altri codici TARIC più vicini]
     Descriptions: [descrizioni per gli altri codici TARIC].
-  `;
+  `);
 
-    // Fetch response from the model
-    const result = await model.generateContent([prompt]);
-    let responseText = result.response.text().trim();
+    // Use the AI service with caching
+    let responseText = await aiService.getGeminiResponse(prompt, {
+      model: "gemini-1.5-pro"
+    });
     console.log("responseText: " + responseText);
 
     // Remove the "Note" section if present
@@ -378,15 +355,8 @@ router.post("/get-suggested-terms", async (req, res) => {
 
     let textToProcess = description;
 
-    // Initialize the model
-    //const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-    const model = genAI.getGenerativeModel(
-      { model: "gemini-1.5-pro" },
-      { apiVersion: "v1beta" }
-    );
-
-    // Generate suggestions for terms with materials, uses, and category
-    const suggestionPrompt = `
+    // Optimize the prompt to reduce token usage
+    const suggestionPrompt = aiService.optimizePrompt(`
     Given the product description, provide suggested terms for classification, along with relevant details about each term in ${
       language === "it" ? "Italian" : "English"
     }.
@@ -423,11 +393,12 @@ router.post("/get-suggested-terms", async (req, res) => {
     Only respond with the JSON structure, filled out based on the description provided, in ${
       language === "it" ? "Italian" : "English"
     }.
-    `;
+    `);
 
-    // Fetch suggestions from the model
-    const suggestionResult = await model.generateContent([suggestionPrompt]);
-    let suggestionResponseText = suggestionResult.response.text().trim();
+    // Use the AI service with caching
+    let suggestionResponseText = await aiService.getGeminiResponse(suggestionPrompt, {
+      model: "gemini-1.5-pro"
+    });
 
     // Log the raw response from the model for debugging
     console.log("Raw suggestion response:", suggestionResponseText);
@@ -474,14 +445,8 @@ router.post("/get-term-definition", async (req, res) => {
 
     console.log("language: " + language);
 
-    // Initialize the model
-    const model = genAI.getGenerativeModel(
-      { model: "gemini-1.5-pro" },
-      { apiVersion: "v1beta" }
-    );
-
-    // Prompt for generating the term definition
-    const definitionPrompt = `
+    // Optimize the prompt to reduce token usage
+    const definitionPrompt = aiService.optimizePrompt(`
     Provide a concise definition (a short paragraph) for the given term in ${
       language === "it" ? "Italian" : "English"
     }. The definition should be simple, clear, and suitable for general understanding.
@@ -496,11 +461,12 @@ router.post("/get-term-definition", async (req, res) => {
     }
 
     Only respond with the JSON structure, filled out based on the term provided.
-    `;
+    `);
 
-    // Fetch the definition from the model
-    const definitionResult = await model.generateContent([definitionPrompt]);
-    let definitionResponseText = definitionResult.response.text().trim();
+    // Use the AI service with caching
+    let definitionResponseText = await aiService.getGeminiResponse(definitionPrompt, {
+      model: "gemini-1.5-pro"
+    });
 
     // Log the raw response for debugging
     console.log("Raw definition response:", definitionResponseText);
@@ -547,14 +513,8 @@ router.post("/get-taric-summary", async (req, res) => {
 
     console.log("language: " + language);
 
-    // Initialize the model
-    const model = genAI.getGenerativeModel(
-      { model: "gemini-1.5-pro" },
-      { apiVersion: "v1beta" }
-    );
-
-    // Prompt for generating the TARIC code summary
-    const definitionPrompt = `
+    // Optimize the prompt to reduce token usage
+    const definitionPrompt = aiService.optimizePrompt(`
     Provide a detailed overview of the TARIC code for the given product. Include the following elements:  
     0. Please alwawys mention the product
     1. A general explanation that the TARIC code for the product depends on its composition, characteristics, and materials used.  
@@ -570,11 +530,12 @@ router.post("/get-taric-summary", async (req, res) => {
     }
 
     Only respond with the JSON structure, filled out based on the term provided make sure to alwawys return the json above.
-    `;
+    `);
 
-    // Fetch the definition from the model
-    const definitionResult = await model.generateContent([definitionPrompt]);
-    let definitionResponseText = definitionResult.response.text().trim();
+    // Use the AI service with caching
+    let definitionResponseText = await aiService.getGeminiResponse(definitionPrompt, {
+      model: "gemini-1.5-pro"
+    });
 
     // Log the raw response for debugging
     console.log("Raw definition response:", definitionResponseText);
@@ -623,16 +584,9 @@ router.post("/get-suggested-taric-codes", async (req, res) => {
 
     let textToProcess = description;
 
-    // Initialize the model
-    //const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-    const model = genAI.getGenerativeModel(
-      { model: "gemini-1.5-pro" },
-      { apiVersion: "v1beta" }
-    );
-
     // Generate TARIC code suggestions based on the specified language
     const languagePrompts = {
-      it: `
+      it: aiService.optimizePrompt(`
       In base alla seguente descrizione, genera i migliori codici TARIC possibili in italiano,
       con lunghezze variabili (4, 8, 10, 12 e 16). Ogni codice TARIC dovrebbe essere la classificazione 
       più accurata per questo articolo in Italia.
@@ -647,8 +601,8 @@ router.post("/get-suggested-taric-codes", async (req, res) => {
       - Codice TARIC a 16 cifre: XXXXXXXXXXXXXXXX
 
       Assicurati che questi codici siano accurati per la descrizione fornita.
-      `,
-      en: `
+      `),
+      en: aiService.optimizePrompt(`
       Based on the following description, please generate the best possible TARIC codes in English,
       with varying digit lengths (4, 8, 10, 12, and 16). Each TARIC code should be the most accurate 
       classification for this item in Italy.
@@ -664,14 +618,15 @@ router.post("/get-suggested-taric-codes", async (req, res) => {
       - 16-digit TARIC code: XXXXXXXXXXXXXXXX
 
       Please ensure these codes are accurate for the given description.
-      `,
+      `),
     };
 
     const taricPrompt = languagePrompts[language];
 
-    // Fetch TARIC code suggestions from the model
-    const taricResult = await model.generateContent([taricPrompt]);
-    let taricResponseText = taricResult.response.text().trim();
+    // Use the AI service with caching
+    let taricResponseText = await aiService.getGeminiResponse(taricPrompt, {
+      model: "gemini-1.5-pro"
+    });
 
     // Log the raw response for debugging
     console.log("Raw TARIC response:", taricResponseText);
@@ -727,15 +682,8 @@ router.post("/get-taric-code-questions", async (req, res) => {
     console.log("Language: " + language);
     console.log("Term: " + term);
 
-    // Initialize the model
-    //const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-    const model = genAI.getGenerativeModel(
-      { model: "gemini-1.5-pro" },
-      { apiVersion: "v1beta" }
-    );
-
-    // Define the prompt for generating detailed TARIC-specific questions
-    const questionPrompt = `
+    // Optimize the prompt to reduce token usage
+    const questionPrompt = aiService.optimizePrompt(`
       Given the following term, create a series of questions to determine the appropriate TARIC code. 
       Ask these questions in ${language === "it" ? "Italian" : "English"}.
 
@@ -788,11 +736,12 @@ router.post("/get-taric-code-questions", async (req, res) => {
       Term: "${term}"
 
       Ensure questions are detailed, relevant to TARIC classification, and answer options are provided in complete phrases (e.g., "Yes, it is for industrial use"). If the product requires specific classification points, make sure to ask about them.
-    `;
+    `);
 
-    // Fetch questions from the model
-    const questionsResult = await model.generateContent([questionPrompt]);
-    const questionsText = questionsResult.response.text().trim();
+    // Use the AI service with caching
+    const questionsText = await aiService.getGeminiResponse(questionPrompt, {
+      model: "gemini-1.5-pro"
+    });
 
     // Log the raw response for debugging
     console.log("Generated Questions:", questionsText);
@@ -844,15 +793,8 @@ router.post("/get-dynamic-taric-code-questions", async (req, res) => {
     console.log("Language:", language);
     console.log("Term:", term);
 
-    // Initialize the model
-    //const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-    const model = genAI.getGenerativeModel(
-      { model: "gemini-1.5-pro" },
-      { apiVersion: "v1beta" }
-    );
-
-    // Adjusted Prompt
-    const prompt = `
+    // Optimize the prompt to reduce token usage
+    const prompt = aiService.optimizePrompt(`
   Given the term "${term}", identify the most accurate and up-to-date TARIC codes, including the full hierarchy from chapter to the deepest subheadings in the current TARIC database (for today's date). Each TARIC code's description should be as detailed as possible, including attributes like product type, contents, preparation methods, and any defining features (e.g., fat content, added ingredients) specific to that TARIC code.
 
   Break down the code structure into the following levels:
@@ -871,12 +813,10 @@ router.post("/get-dynamic-taric-code-questions", async (req, res) => {
   }.
   5. **Detailed Codes**: For each detailed code, include the exact description from the TARIC database, ensuring full specificity for the product classification. For example, “04032031” should yield: “Yogurts containing added sugar or other sweetening matter, but not flavoured or containing added fruit, nuts, cocoa, chocolate, spices, coffee, plants, cereals or bakery products, of a fat content by weight of ≤ 3%.” in 
 
-  For the Detailed Codes if it's in english and ${
-    language === "it"
-  } please translate it to italian
-  For each level, generate specific questions to help refine the classification and ensure accuracy. Structure the questions in ${
-    language === "it" ? "Italian" : "English"
-  } and return only JSON in the following format without any additional text:
+  For the Detailed Codes if it's in english please translate it to italian
+  For each level, generate specific questions to help refine the classification and ensure accuracy. Structure the questions in 
+  ${ language === "it" ? "Italian" : "English" }
+  and return only JSON in the following format without any additional text:
   Please Make sure that if language === "it" all of the result should be in italian else if language === "en" the result should be in english
   Please use the latest taric code database make sure the data is updated as September 24, 2024
   use this as source: https://taxation-customs.ec.europa.eu/customs-4/calculation-customs-duties/customs-tariff/eu-customs-tariff-taric_en
@@ -920,11 +860,12 @@ router.post("/get-dynamic-taric-code-questions", async (req, res) => {
       }
     ]
   }
-`;
+`);
 
-    // Fetch the generated response from the model
-    const response = await model.generateContent([prompt]);
-    let responseText = response.response.text().trim();
+    // Use the AI service with caching
+    let responseText = await aiService.getGeminiResponse(prompt, {
+      model: "gemini-1.5-pro"
+    });
 
     // Remove potential markdown code blocks
     responseText = responseText.replace(/```json|```/g, "").trim();
@@ -2298,8 +2239,8 @@ router.post("/get-taric-code-family-openai", async (req, res) => {
 
     const isItalian = language === "it";
 
-    // Define the AI prompt with more detailed instructions
-    const taricCodePrompt = `
+    // Optimize the prompt to reduce token usage
+    const taricCodePrompt = aiService.optimizePrompt(`
     Act as an expert in TARIC classification. Your task is to accurately determine the most appropriate 4-digit TARIC "heading" or "commodity codes" for the term "${term}". Please ensure that the classification follows the correct rules based on use-case  and product type. 
 
     The term "grattugia in metallo" refers specifically to a **metal kitchen grater** used for domestic purposes. The code should align with kitchen utensils for household use rather than general cutting instruments. Ensure that only **high-confidence** classifications are provided.
@@ -2329,18 +2270,15 @@ router.post("/get-taric-code-family-openai", async (req, res) => {
     
     **Output Format:**
     Return only the JSON object—no explanations, commentary, or additional text.
-`;
+`);
 
-    // Request to OpenAI API
-    const response = await openai.chat.completions.create({
+    // Use the AI service with caching for OpenAI
+    const taricCodeText = await aiService.getOpenAIResponse({
       model: "gpt-4",
       messages: [{ role: "user", content: taricCodePrompt }],
-      max_tokens: 500,
-      temperature: 0.2,
+      maxTokens: 500,
+      temperature: 0.2
     });
-
-    // Extract and clean the generated response
-    const taricCodeText = response.choices[0]?.message?.content.trim();
     if (!taricCodeText) {
       throw new Error("No response from OpenAI.");
     }
@@ -2409,8 +2347,8 @@ router.post("/get-suggested-terms-openai", async (req, res) => {
 
     let textToProcess = description;
 
-    // Generalized prompt for handling different cases
-    const suggestionPrompt = `### **Instructions:**
+    // Optimize the prompt to reduce token usage
+    const suggestionPrompt = aiService.optimizePrompt(`### **Instructions:**
 1. **Translate all terms, categories, materials, and uses** into ${
       language === "it" ? "Italian" : "English"
     }.
@@ -2457,18 +2395,15 @@ router.post("/get-suggested-terms-openai", async (req, res) => {
       ]
     }
   ]
-}
-`;
+}`);
 
-    // Fetch suggestions from OpenAI
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4", // Using GPT-4
+    // Use the AI service with caching for OpenAI
+    let suggestionResponseText = await aiService.getOpenAIResponse({
+      model: "gpt-4",
       messages: [{ role: "user", content: suggestionPrompt }],
-      max_tokens: 500,
-      temperature: 0,
+      maxTokens: 500,
+      temperature: 0
     });
-
-    let suggestionResponseText = completion.choices[0].message.content.trim();
 
     // Log the raw response from OpenAI
     console.log("Raw suggestion response:", suggestionResponseText);
@@ -2523,52 +2458,48 @@ router.post("/term-classification-openai", async (req, res) => {
 
     let textToProcess = description;
 
-    // Generalized prompt for handling different cases
-    const suggestionPrompt = `I have a product term: ${textToProcess}. Please classify this product based on the Italian TARIC classification system, 
-    which categorizes goods into specific chapters. Each chapter corresponds to a category such as electronics, pharmaceuticals, textiles, etc. 
-    Provide the TARIC chapter and category that best matches the term, along with a confidence score if possible. 
-    If the term could match multiple categories, provide the top 4 results with their respective confidence scores.
-    Make sure if it's made from textile articles add 63 classification.
+    // Optimize the prompt to reduce token usage
+    const suggestionPrompt = aiService.optimizePrompt(`Given a product term: ${textToProcess}, please classify it according to the Italian TARIC classification system.
 
-    if ${textToProcess} is Sgabello include 73 in the list
-    if ${textToProcess} is Giara or giara include 73, 69, 70 in the list
+Requirements:
+- Provide the most appropriate TARIC chapter number, chapter description, and corresponding 4-digit TARIC code
+- Include a confidence score (percentage) for each classification
+- Retun only one complete json with the classifications
+- If multiple classifications are possible, list the top 5 matches with respective confidence scores
+- For textile articles, always include chapter 63 classification
+- Special cases:
+  * If ${textToProcess} is "Sgabello", include chapter 73 (Iron/Steel articles) in results
+  * If ${textToProcess} is "Giara" or "giara", include chapters 73, 69, and 70 in results
 
-    ### **Response Format (JSON):**
+Response Format (JSON):
 {
-  "description": "Provide a summary of all suggested terms based on '${textToProcess}'",
+  "description": "Classification analysis for '${textToProcess}'",
   "suggestedTerms": [
     {
-      "term": "Suggested term in ${language === "it" ? "Italian" : "English"}",
-      "category": "Product category (e.g., Household item, Beverage, Electronics, etc.) in ${language === "it" ? "Italian" : "English"}",
-      "materials": "material in ${language === "it" ? "Italian" : "English"}",
-      "uses": "Main uses (e.g., domestic, industrial, construction) in ${language === "it" ? "Italian" : "English"}",
+      "term": "${textToProcess}",
+      "category": "Product category in ${language === 'it' ? 'Italian' : 'English'}",
+      "materials": "Primary materials in ${language === 'it' ? 'Italian' : 'English'}",
+      "uses": "Main applications in ${language === 'it' ? 'Italian' : 'English'}",
       "taricChapter": {
-        "number": "The TARIC Chapter number",
-        "description": "Brief definition of the TARIC chapter in ${language === "it" ? "Italian" : "English"}",
-        "4digit taric": "4digit taric number"
+        "number": "XX",
+        "description": "TARIC chapter description in ${language === 'it' ? 'Italian' : 'English'}",
+        "4digit_taric": "XXXX"
       },
-      "Confidence": "Percentage"
+      "confidence": "XX%"
     }
   ]
-}`
+}`);
 
-    // Fetch suggestions from OpenAI
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4", // Using GPT-4
+    // Use the AI service with caching for OpenAI
+    let suggestionResponseText = await aiService.getGroqResponse({
       messages: [{ role: "user", content: suggestionPrompt }],
-      max_tokens: 500,
-      temperature: 0,
     });
-
-    let suggestionResponseText = completion.choices[0].message.content.trim();
 
     // Log the raw response from OpenAI
     console.log("Raw suggestion response:", suggestionResponseText);
 
     // Clean up formatting (ensure no markdown blocks)
-    suggestionResponseText = suggestionResponseText
-      .replace(/```json|```/g, "")
-      .trim();
+    suggestionResponseText = aiService.extractJsonFromLLMResponse(suggestionResponseText)
 
     // Parse the cleaned response into JSON
     let parsedResponse;
@@ -2620,8 +2551,8 @@ router.post("/taric-classification-openai", async (req, res) => {
 
     console.log(`Processing TARIC classification for: ${term} (Prefix: ${taricPrefix})`);
 
-    // Construct the refined OpenAI prompt
-    const classificationPrompt = `
+    // Optimize the prompt to reduce token usage
+    const classificationPrompt = aiService.optimizePrompt(`
     You are a TARIC classification assistant. Your task is to classify products based on their TARIC 2-digit prefix and product description.
     
     - You must return exactly **4 TARIC classifications** that **start with the given prefix**.
@@ -2658,18 +2589,15 @@ router.post("/taric-classification-openai", async (req, res) => {
     - **TARIC Prefix:** "${taricPrefix}"
     
     Return only the **JSON object**, with no explanations or additional text.
-    `;
-    
+    `);
 
-    // Call OpenAI API for classification
-    const completion = await openai.chat.completions.create({
+    // Use the AI service with caching for OpenAI
+    let responseText = await aiService.getOpenAIResponse({
       model: "gpt-4",
       messages: [{ role: "user", content: classificationPrompt }],
-      max_tokens: 500,
-      temperature: 0,
+      maxTokens: 500,
+      temperature: 0
     });
-
-    let responseText = completion.choices[0].message.content.trim();
 
     console.log("Raw TARIC response:", responseText);
 
