@@ -2491,7 +2491,7 @@ Response Format (JSON):
 }`);
 
     // Use the AI service with caching for OpenAI
-    let suggestionResponseText = await aiService.getGroqResponse({
+    let suggestionResponseText = await aiService.getOpenAIResponse({
       messages: [{ role: "user", content: suggestionPrompt }],
     });
 

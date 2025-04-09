@@ -91,9 +91,9 @@ const getGeminiResponse = async (prompt, options = {}) => {
  */
 const getOpenAIResponse = async (options = {}) => {
   const {
-    model = "gpt-4",
+    model = "gpt-4o",
     messages,
-    maxTokens = 500,
+    maxTokens = 8192,
     temperature = 0.7,
     forceRefresh = false,
     cacheTtl = 24 * 60 * 60 * 1000, // Default 24 hours
@@ -258,6 +258,7 @@ const optimizePrompt = (prompt, options = {}) => {
  */
 function extractJsonFromLLMResponse(text) {
   // Method 1: Try to extract JSON between triple backticks
+  logger.info(`Raw text : ${text}`)
   const jsonRegexWithMarkdown = /```(?:json)?([\s\S]*?)```/;
   const markdownMatch = text.match(jsonRegexWithMarkdown);
 
