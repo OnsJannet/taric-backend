@@ -2534,7 +2534,7 @@ Response Format (JSON):
 
 router.post("/taric-classification-openai", async (req, res) => {
   try {
-    const { term, taricPrefix } = req.body;
+    const { term, taricPrefix, language } = req.body;
 
     // Validate input
     if (!term || !taricPrefix ) {
@@ -2558,12 +2558,18 @@ You are a specialized TARIC classification assistant for international trade. Yo
    - Use a valid 4-digit TARIC code that starts with the provided 2-digit prefix
    - Include a concise but informative description of the classification
    - Provide a confidence score (0-100) based on your assessment of the match
+3. Respond in the language specified by the "language" parameter:
+   - If "language" is "en" or omitted, respond in English
+   - If "language" is "it", respond in Italian
 
 ## Special Cases:
 
 - If the prefix is "Altri" (or any case variation like "altri", "ALTRI"), return 4 general 4-digit classifications within that section.
 - For kitchen or household tools, always consider code 8205 if applicable and if it starts with the given prefix.
 - IMPORTANT: Never use non-standard prefixes. All returned codes must be valid 4-digit TARIC codes (e.g., "8201", "8202").
+- If dealing with food products, check for appropriate classifications under chapters 16-22.
+- For chemical products, consider chapters 28-38.
+- For textile products, refer to chapters 50-63.
 
 ## Response Format:
 
@@ -2573,31 +2579,33 @@ Return ONLY a valid JSON object with this exact structure (JSON):
       "taricCodes": [
       {
         "code": "4-digit code",
-        "description": "Precise classification description",
+        "description": "Precise classification description in specified language",
         "score": confidence_score
       },
       {
         "code": "4-digit code",
-        "description": "Precise classification description",
+        "description": "Precise classification description in specified language",
         "score": confidence_score
       },
       {
         "code": "4-digit code",
-        "description": "Precise classification description",
+        "description": "Precise classification description in specified language",
         "score": confidence_score
       },
       {
         "code": "4-digit code",
-        "description": "Precise classification description",
+        "description": "Precise classification description in specified language",
         "score": confidence_score
       }
-    ]
+    ],
+        "language": "en or it (matching the language parameter)"
     }
 
 ## Classification Request:
 
 - **Product:** "${term}"
 - **TARIC Prefix:** "${taricPrefix}"
+- **Language:** "${language}"
 
 Provide ONLY the JSON response with no additional explanations, comments, or text before or after the JSON object.
 
