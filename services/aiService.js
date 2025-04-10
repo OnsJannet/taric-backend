@@ -96,7 +96,7 @@ const getOpenAIResponse = async (options = {}) => {
     maxTokens = 8192,
     temperature = 0.7,
     forceRefresh = false,
-    cacheTtl = 24 * 60 * 60 * 1000, // Default 24 hours
+    cacheTtl = 60 * 60 * 1000, // Default 24 hours
   } = options;
 
   if (!messages || !Array.isArray(messages) || messages.length === 0) {
@@ -106,7 +106,7 @@ const getOpenAIResponse = async (options = {}) => {
   // Create a cache key based on the messages and model
   const messagesKey = JSON.stringify(messages).substring(0, 200);
   const cacheKey = `openai-${model}-${messagesKey}`;
-
+  logger.info('User prompt', { messages });
   // Check cache first unless forceRefresh is true
   if (!forceRefresh) {
     const cachedResponse = aiResponseCache.get(cacheKey);

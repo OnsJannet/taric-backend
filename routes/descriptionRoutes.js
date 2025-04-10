@@ -1938,7 +1938,7 @@ router.post("/get-taric-codes-openai", async (req, res) => {
     const response = await axios.post(
       OPENAI_API_URL,
       {
-        model: "gpt-3.5-turbo", // Or use "gpt-4" if required
+        model: "gpt-4o", // Or use "gpt-4" if required
         messages: [
           {
             role: "system",
@@ -2274,10 +2274,7 @@ router.post("/get-taric-code-family-openai", async (req, res) => {
 
     // Use the AI service with caching for OpenAI
     const taricCodeText = await aiService.getOpenAIResponse({
-      model: "gpt-4",
       messages: [{ role: "user", content: taricCodePrompt }],
-      maxTokens: 500,
-      temperature: 0.2
     });
     if (!taricCodeText) {
       throw new Error("No response from OpenAI.");
@@ -2399,10 +2396,7 @@ router.post("/get-suggested-terms-openai", async (req, res) => {
 
     // Use the AI service with caching for OpenAI
     let suggestionResponseText = await aiService.getOpenAIResponse({
-      model: "gpt-4",
       messages: [{ role: "user", content: suggestionPrompt }],
-      maxTokens: 500,
-      temperature: 0
     });
 
     // Log the raw response from OpenAI
@@ -2552,51 +2546,67 @@ router.post("/taric-classification-openai", async (req, res) => {
     console.log(`Processing TARIC classification for: ${term} (Prefix: ${taricPrefix})`);
 
     // Optimize the prompt to reduce token usage
-    const classificationPrompt = aiService.optimizePrompt(`
-    You are a TARIC classification assistant. Your task is to classify products based on their TARIC 2-digit prefix and product description.
-    
-    - You must return exactly **4 TARIC classifications** that **start with the given prefix**.
-    - Each classification must include:
-      - If the prefix is **"Altri"** or any case variation (e.g., "altri", "ALTRI"), return possible 4-digit TARIC codes that start with the given prefix and include **general classifications**.
-      - A **4-digit TARIC code** that starts with the given **2-digit prefix**.
-      - A **brief description** of the classification.
-      - A **confidence score (0-100)**.
-      - If the product is a **kitchen or household tool**, ensure **8205** is considered if applicable.
-      - **Do not include any prefixes like "ALTR"**. The TARIC code must be a valid 4-digit code, such as "8201", "8202", etc. Do not use any non-standard formats.
-    
-    ### Example Input:
-    Product: "grattugia in metallo"
-    TARIC Prefix: 82
-    
-    ### Expected Output Format:
-    \`\`\`json
+    const classificationPrompt = `
+    # TARIC Classification Assistant
+
+You are a specialized TARIC classification assistant for international trade. Your task is to analyze product descriptions and provide the most appropriate TARIC codes that start with a given prefix.
+
+## Instructions:
+
+1. For each product query, you must return EXACTLY 4 TARIC classifications.
+2. Each classification must:
+   - Use a valid 4-digit TARIC code that starts with the provided 2-digit prefix
+   - Include a concise but informative description of the classification
+   - Provide a confidence score (0-100) based on your assessment of the match
+
+## Special Cases:
+
+- If the prefix is "Altri" (or any case variation like "altri", "ALTRI"), return 4 general 4-digit classifications within that section.
+- For kitchen or household tools, always consider code 8205 if applicable and if it starts with the given prefix.
+- IMPORTANT: Never use non-standard prefixes. All returned codes must be valid 4-digit TARIC codes (e.g., "8201", "8202").
+
+## Response Format:
+
+Return ONLY a valid JSON object with this exact structure (JSON):
+
     {
       "taricCodes": [
-        { "code": "4-digit TARIC code", "description": "brief description** of the classification", "score": confidence score (0-100) },
-        { "code": "4-digit TARIC code", "description": "brief description** of the classification", "score": confidence score (0-100) },
-        { "code": "4-digit TARIC code", "description": "Cbrief description** of the classification", "score": confidence score (0-100) },
-        { "code": "4-digit TARIC code", "description": "brief description** of the classification", "score": confidence score (0-100) }
-       
-
-      ]
+      {
+        "code": "4-digit code",
+        "description": "Precise classification description",
+        "score": confidence_score
+      },
+      {
+        "code": "4-digit code",
+        "description": "Precise classification description",
+        "score": confidence_score
+      },
+      {
+        "code": "4-digit code",
+        "description": "Precise classification description",
+        "score": confidence_score
+      },
+      {
+        "code": "4-digit code",
+        "description": "Precise classification description",
+        "score": confidence_score
+      }
+    ]
     }
-    \`\`\`
-    
-    ### Task:
-    Now, classify the following:
-    
-    - **Product:** "${term}"
-    - **TARIC Prefix:** "${taricPrefix}"
-    
-    Return only the **JSON object**, with no explanations or additional text.
-    `);
 
+## Classification Request:
+
+- **Product:** "${term}"
+- **TARIC Prefix:** "${taricPrefix}"
+
+Provide ONLY the JSON response with no additional explanations, comments, or text before or after the JSON object.
+
+    `;
+    console.log(classificationPrompt)
     // Use the AI service with caching for OpenAI
     let responseText = await aiService.getOpenAIResponse({
-      model: "gpt-4",
       messages: [{ role: "user", content: classificationPrompt }],
-      maxTokens: 500,
-      temperature: 0
+      forceRefresh: true
     });
 
     console.log("Raw TARIC response:", responseText);
