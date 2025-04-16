@@ -2459,13 +2459,14 @@ Requirements:
 - Provide the most appropriate TARIC chapter number, chapter description, and corresponding 4-digit TARIC code
 - Include a confidence score (percentage) for each classification
 - Retun only one complete json with the classifications
+- Respect the JSON format below
 - If multiple classifications are possible, list the top 5 matches with respective confidence scores
 - For textile articles, always include chapter 63 classification
 - Special cases:
   * If ${textToProcess} is "Sgabello", include chapter 73 (Iron/Steel articles) in results
   * If ${textToProcess} is "Giara" or "giara", include chapters 73, 69, and 70 in results
 
-Response Format (JSON):
+Return ONLY a valid JSON object with this exact structure (JSON):
 {
   "description": "Classification analysis for '${textToProcess}'",
   "suggestedTerms": [
@@ -2570,6 +2571,7 @@ You are a specialized TARIC classification assistant for international trade. Yo
 - If dealing with food products, check for appropriate classifications under chapters 16-22.
 - For chemical products, consider chapters 28-38.
 - For textile products, refer to chapters 50-63.
+- Respect the JSON format below
 
 ## Response Format:
 
