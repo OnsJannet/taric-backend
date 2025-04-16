@@ -2452,21 +2452,18 @@ router.post("/term-classification-openai", async (req, res) => {
 
     let textToProcess = description;
 
-    // Optimize the prompt to reduce token usage
+    // Optimize the prompt to reduce token usage with very explicit instructions
     const suggestionPrompt = aiService.optimizePrompt(`Given a product term: ${textToProcess}, please classify it according to the Italian TARIC classification system.
 
-Requirements:
-- Provide the most appropriate TARIC chapter number, chapter description, and corresponding 4-digit TARIC code
-- Include a confidence score (percentage) for each classification
-- Retun only one complete json with the classifications
-- Respect the JSON format below
-- If multiple classifications are possible, list the top 5 matches with respective confidence scores
-- For textile articles, always include chapter 63 classification
-- Special cases:
-  * If ${textToProcess} is "Sgabello", include chapter 73 (Iron/Steel articles) in results
-  * If ${textToProcess} is "Giara" or "giara", include chapters 73, 69, and 70 in results
+CRITICAL INSTRUCTIONS:
+- You MUST return a JSON object with EXACTLY the structure shown below
+- Do NOT modify the structure or add additional fields
+- Do NOT use "classifications" array - use "taricChapter" object instead
+- Each suggested term MUST have exactly ONE taricChapter object with number, description, and 4digit_taric fields
+- Include a confidence percentage as a string with % symbol (e.g., "85%")
+- Return ONLY the JSON with no explanations or additional text
 
-Return ONLY a valid JSON object with this exact structure (JSON):
+REQUIRED JSON STRUCTURE:
 {
   "description": "Classification analysis for '${textToProcess}'",
   "suggestedTerms": [
@@ -2483,30 +2480,112 @@ Return ONLY a valid JSON object with this exact structure (JSON):
       "confidence": "XX%"
     }
   ]
-}`);
+}
 
-    // Use the AI service with caching for OpenAI
+IMPORTANT: Your response MUST match this exact structure. Do not use a "classifications" array or any other structure.`);
+
+    // Use the AI service with caching for OpenAI with stricter parameters
     let suggestionResponseText = await aiService.getOpenAIResponse({
       messages: [{ role: "user", content: suggestionPrompt }],
+      temperature: 0.2, // Lower temperature for more deterministic output
+      forceRefresh: true // Force a fresh response
     });
 
     // Log the raw response from OpenAI
     console.log("Raw suggestion response:", suggestionResponseText);
 
     // Clean up formatting (ensure no markdown blocks)
-    suggestionResponseText = aiService.extractJsonFromLLMResponse(suggestionResponseText)
-
+    suggestionResponseText = suggestionResponseText.replace(/```json|```/g, "").trim();
+    
+    // Try to extract JSON from the response
+    let jsonMatch = suggestionResponseText.match(/\{[\s\S]*\}/);
+    let jsonString = jsonMatch ? jsonMatch[0] : suggestionResponseText;
+    
     // Parse the cleaned response into JSON
     let parsedResponse;
     try {
-      parsedResponse = JSON.parse(suggestionResponseText);
+      parsedResponse = JSON.parse(jsonString);
       console.log("Parsed Response:", parsedResponse);
+      
+      // Check if the response has the wrong structure and transform it
+      if (parsedResponse.suggestedTerms && 
+          parsedResponse.suggestedTerms[0] && 
+          parsedResponse.suggestedTerms[0].classifications) {
+        
+        console.log("Detected incorrect structure, transforming...");
+        
+        // Transform the response to match our expected structure
+        const transformedTerms = parsedResponse.suggestedTerms.map(term => {
+          // Take the first classification with highest confidence
+          const primaryClassification = term.classifications.sort((a, b) => 
+            parseInt(b.confidenceScore || 0) - parseInt(a.confidenceScore || 0)
+          )[0];
+          
+          return {
+            term: term.term,
+            category: term.category || "General product",
+            materials: term.materials || "Various materials",
+            uses: term.uses || "Multiple applications",
+            taricChapter: {
+              number: primaryClassification?.chapterNumber?.toString() || "XX",
+              description: primaryClassification?.chapterDescription || "General classification",
+              "4digit_taric": primaryClassification?.taricCode || "XXXX"
+            },
+            confidence: `${primaryClassification?.confidenceScore || 80}%`
+          };
+        });
+        
+        parsedResponse.suggestedTerms = transformedTerms;
+      }
+      
     } catch (error) {
       console.error("Error parsing response:", error);
-      return res.status(400).json({
-        error: "Error parsing OpenAI response.",
-        rawResponse: suggestionResponseText,
-      });
+      
+      // If parsing fails, make a second attempt with a more structured prompt
+      const retryPrompt = aiService.optimizePrompt(`
+      I need a valid JSON object with this EXACT structure for the term "${textToProcess}":
+      
+      {
+        "description": "Classification analysis for '${textToProcess}'",
+        "suggestedTerms": [
+          {
+            "term": "${textToProcess}",
+            "category": "Product category in ${language === 'it' ? 'Italian' : 'English'}",
+            "materials": "Primary materials in ${language === 'it' ? 'Italian' : 'English'}",
+            "uses": "Main applications in ${language === 'it' ? 'Italian' : 'English'}",
+            "taricChapter": {
+              "number": "XX",
+              "description": "TARIC chapter description in ${language === 'it' ? 'Italian' : 'English'}",
+              "4digit_taric": "XXXX"
+            },
+            "confidence": "XX%"
+          }
+        ]
+      }
+      
+      IMPORTANT: Return ONLY the JSON object with no additional text, explanations, or markdown formatting.`);
+      
+      try {
+        // Retry with a more explicit prompt
+        let retryResponse = await aiService.getOpenAIResponse({
+          messages: [{ role: "user", content: retryPrompt }],
+          temperature: 0.1 // Even lower temperature for more deterministic output
+        });
+        
+        // Clean up the retry response
+        retryResponse = retryResponse.replace(/```json|```/g, "").trim();
+        jsonMatch = retryResponse.match(/\{[\s\S]*\}/);
+        jsonString = jsonMatch ? jsonMatch[0] : retryResponse;
+        
+        parsedResponse = JSON.parse(jsonString);
+        console.log("Retry Parsed Response:", parsedResponse);
+      } catch (retryError) {
+        console.error("Error in retry parsing:", retryError);
+        return res.status(400).json({
+          error: "Failed to parse OpenAI response after multiple attempts.",
+          rawResponse: suggestionResponseText
+        });
+      }
     }
 
     // Check if we have any suggested terms

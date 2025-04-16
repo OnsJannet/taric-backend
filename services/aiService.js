@@ -94,8 +94,8 @@ const getOpenAIResponse = async (options = {}) => {
     model = "gpt-4o",
     messages,
     maxTokens = 8192,
-    temperature = 0.7,
-    forceRefresh = false,
+    temperature = 0.1,
+    forceRefresh = true,
     cacheTtl = 60 * 60 * 1000, // Default 24 hours
   } = options;
 
